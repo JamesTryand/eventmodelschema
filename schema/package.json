@@ -1,0 +1,13 @@
+{
+  "name": "eventmodeling-schema",
+  "private": true,
+  "version": "1.0.0",
+  "description": "JSON Schema for EventModeling documents.",
+  "scripts": {
+    "validate": "ajv validate -s eventmodeling.schema.json -d \"examples/*.json\" --spec=draft2020 -c ajv-formats"
+  },
+  "devDependencies": {
+    "ajv-cli": "^5.0.0",
+    "ajv-formats": "^3.0.1"
+  }
+}
