@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
   "title": "EventModeling Document",
-  "description": "Structural schema for a document describing an EventModeling model (eventmodeling.org methodology): swimlanes, the 5 elements (Event/Command/ReadModel/Screen/Automation), the 4 slice patterns (State Change/State View/Automation/Translation), scenarios, and the optional notation layer (hotspots, chapters, actor lanes, slice status). This schema enforces structural well-formedness only -- methodology rules such as 'every command has a reason' or anti-pattern cardinality checks are deliberately NOT enforced here; see docs/design-notes.md.",
+  "description": "Structural schema for a document describing an EventModeling model (eventmodeling.org methodology): swimlanes, the 5 elements (Event/Command/ReadModel/Screen/Automation), the 3 slice patterns (State Change/State View/Automation), scenarios, and the optional notation layer (hotspots, chapters, actor lanes, slice status). Events are only ever produced by a Command; a Read Model can be consulted for context but never originates an Event -- see docs/design-notes.md for why this schema has no separate 'translation' pattern. This schema enforces structural well-formedness only -- methodology rules such as 'every command has a reason' or anti-pattern cardinality checks are deliberately NOT enforced here; see docs/design-notes.md.",
   "type": "object",
   "required": ["eventModelingSchemaVersion", "id", "name", "swimlanes", "slices"],
   "properties": {
@@ -48,11 +48,11 @@
     },
 
     "slicePattern": {
-      "enum": ["stateChange", "stateView", "automation", "translation"]
+      "enum": ["stateChange", "stateView", "automation"]
     },
 
     "scenarioKind": {
-      "enum": ["stateChange", "stateView", "error", "translation"]
+      "enum": ["stateChange", "stateView", "error"]
     },
 
     "swimlane": {
@@ -342,17 +342,6 @@
               "then": { "$ref": "#/$defs/errorThen" }
             }
           }
-        },
-        {
-          "if": { "type": "object", "properties": { "kind": { "const": "translation" } } },
-          "then": {
-            "type": "object",
-            "required": ["when", "then"],
-            "properties": {
-              "when": { "$ref": "#/$defs/eventRef" },
-              "then": { "$ref": "#/$defs/eventsThen" }
-            }
-          }
         }
       ],
       "unevaluatedProperties": false
@@ -425,7 +414,7 @@
           "if": { "type": "object", "properties": { "pattern": { "const": "automation" } } },
           "then": {
             "type": "object",
-            "required": ["automationId", "triggerEventIds", "readModelId", "commandId", "resultEventIds"],
+            "required": ["automationId", "triggerEventIds", "commandId", "resultEventIds"],
             "properties": {
               "automationId": { "$ref": "#/$defs/id" },
               "triggerEventIds": {
@@ -445,33 +434,6 @@
                 "items": {
                   "type": "object",
                   "properties": { "kind": { "enum": ["stateChange", "error"] } }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": { "type": "object", "properties": { "pattern": { "const": "translation" } } },
-          "then": {
-            "type": "object",
-            "required": ["sourceEventIds", "readModelId", "targetEventIds"],
-            "properties": {
-              "sourceEventIds": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/id" },
-                "minItems": 1
-              },
-              "readModelId": { "$ref": "#/$defs/id" },
-              "targetEventIds": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/id" },
-                "minItems": 1
-              },
-              "scenarios": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": { "kind": { "enum": ["translation"] } }
                 }
               }
             }

@@ -2,8 +2,13 @@
 
 JSON Schema (draft 2020-12) for documents describing an [EventModeling](https://eventmodeling.org)
 model: swimlanes, the 5 elements (Event / Command / Read Model / Screen / Automation),
-the 4 slice patterns (State Change / State View / Automation / Translation), scenarios,
-and the optional notation layer (hotspots, chapters, actor lanes, slice status).
+the 3 slice patterns (State Change / State View / Automation), scenarios, and the
+optional notation layer (hotspots, chapters, actor lanes, slice status).
+
+A Read Model can be consulted for context but never originates an Event — Events are
+only ever produced by a Command. This schema has no "translation" pattern; see
+`docs/design-notes.md` for why an earlier draft's `Event → Read Model → Event` shape
+was removed as inconsistent with EventModeling's own canonical cycle.
 
 ## Validating
 

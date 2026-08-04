@@ -57,7 +57,7 @@ etc.), never the reverse — one source of truth, no membership lists to keep in
 
 ## `allOf` + `if`/`then`, not `oneOf`, for pattern-specific shapes
 
-Both `Slice` (4 patterns) and `Scenario` (4 kinds) have a base shape plus fields that
+Both `Slice` (3 patterns) and `Scenario` (3 kinds) have a base shape plus fields that
 depend on a discriminator (`pattern` / `kind`). This is implemented as `allOf` of the
 base schema plus one `if`/`then` block per discriminator value, with a single
 top-level `unevaluatedProperties: false`.
@@ -68,20 +68,6 @@ schema's properties, so a valid document (which legitimately has both the base
 fields and the pattern-specific ones) fails every branch and the whole `oneOf`
 fails unpredictably. `allOf`/`if`/`then` + `unevaluatedProperties` is the correct
 2020-12 idiom for "shared base + discriminated extension."
-
-## Translation is a first-class 4th scenario kind, not folded into the others
-
-The cheat sheet lists State Change / State View / Automation / Translation as four
-patterns on equal footing (rule #7), but only describes 3 scenario shapes (State
-Change / State View / Error) — none of which fit Translation, since it has no
-Command or Query, just `Event(s) → Read Model → Event(s)`.
-
-Resolved by adding a 4th scenario `kind: "translation"` whose `when` slot holds a
-single **event reference** — the triggering event's arrival — rather than a command
-or query reference. `given` and `then` reuse the same event-list shapes as
-`stateChange`. Translation slices do not get an `automationId`: translation reads as
-passive data-mapping across a boundary (e.g. between swimlanes), not a system
-"side-effect" the way the `automation` pattern's gear icon represents.
 
 ## Slice status has a conventional default, not a schema default
 
@@ -128,3 +114,65 @@ Type enum values are lowerCamelCase (`string`, `boolean`, `integer`, `long`,
 `decimal`, `double`, `date`, `dateTime`, `uuid`, `custom`) rather than Nebulit's
 PascalCase, to match this schema's existing casing convention throughout — a
 deliberate style divergence, not an inconsistency.
+
+## v2: `translation` removed; `automation`'s `readModelId` made optional
+
+v1 had a 4th slice pattern and scenario kind, `translation` (`Event(s) → Read Model
+→ Event(s)`, no command), taken from the cheat sheet's "4 Patterns." It's removed in
+v2. Reasoning, worked out over several rounds of checking against primary sources
+rather than the cheat sheet alone:
+
+- **The cheat sheet is not the canonical source and contains an error here.** The
+  user supplied two more authoritative materials: `architecture.drawio.pdf` (a CQRS/
+  event-sourcing reference deck) and `eventmodeling_blueprint_large.jpg` (a worked
+  example blueprint attributed to Adam Dymitruk, EventModeling's originator), plus
+  Dymitruk's own article (<https://eventmodeling.org/posts/what-is-event-modeling/>).
+  None of these support `Event → Read Model → Event` as a real shape.
+- **Dymitruk's cycle has no ViewModel→Event edge.** The canonical cycle is
+  Command→State (applied), State→Event (decide/evolve), Event→ViewModel
+  (projection), ViewModel→Command (a new decision informed by state). A View/Read
+  Model is only ever a sink for events and a source for *commands* — never a source
+  of events directly. The article states outright: "the views are passive and cannot
+  reject an event after it's been stored in the system" — and, more tellingly, no
+  worked example anywhere in the article or the blueprint shows a View producing an
+  Event without an intervening Command.
+- **The article's own "Translation" pattern has no stated mechanism**, just a
+  motivating example (translate GPS coordinates into "Guest left hotel"/"Guest
+  returned to hotel room") — it never specifies Event→ReadModel→Event. The
+  blueprint's own worked version of that *exact* example ("Hotel Proximity
+  Translator") shows an explicit **Command** ("Translate To Location") mediating
+  between the input GPS events and the resulting events — i.e. `Event(s) → Command →
+  Event(s)`, the same shape as `stateChange`, just automated and boundary-crossing.
+- **The architecture deck's independent "Commands & Events differentiation"
+  principle agrees**: Commands are rejectable (not yet historical); Events are
+  historical facts and cannot be rejected. A pattern that skips the Command step
+  removes the one thing that made the resulting Event's production a *decision*
+  rather than an unconditional pass-through.
+- Given that, `translation` never had a distinct GWT shape at all — it's exactly
+  `automation` (`Event(s) → [Read Model] → Command → Event(s)`), differing only in
+  *why* it exists (adapting an external/foreign vocabulary) rather than *how* it's
+  structured. "Translation," "Bridge" (the architecture deck's term for the same
+  thing — "similar to the denormalizer, however its purpose is to bridge events from
+  other services and map them to commands within this service"), and "Reactor" (an
+  informal general label) are three names for the same shape from three different
+  vocabularies, not three different patterns.
+- Also, comparing Nebulit's *official, shipped* `event-modeling-spec` (as opposed to
+  their cheat sheet) — it has no `TRANSLATION` sliceType either. What was originally
+  read as a gap in their product turned out to be evidence the pattern doesn't hold
+  up in practice, not an oversight.
+
+**Concretely**: `translation` removed from `slicePattern` and `scenarioKind`; the
+`sourceEventIds`/`targetEventIds`/`readModelId`-required slice shape and the
+`when: eventRef` scenario shape are gone. `automation`'s `readModelId` changed from
+required to optional — the fix that actually keeps `automation` itself honest: many
+real automations (particularly boundary-crossing "Bridge" ones) are stateless,
+straight `Event(s) → Command → Event(s)`, and forcing a Read Model onto them was the
+same mistake `translation` made, just softer (an unnecessary field rather than a
+missing Command). `automationId`/`triggerEventIds`/`commandId`/`resultEventIds`
+stay required — an automation always needs a Command mediating its output.
+
+"Bridge" (boundary-crossing: an automation's `triggerEventIds` are owned by a
+different `swimlaneId` than the slice's own) stays a **derived, documented
+classification** of `automation`, not a stored field or a separate pattern — same
+reasoning as not storing Nebulit-style `INBOUND`/`OUTBOUND` dependency records:
+it's mechanically computable from data already in the document.

@@ -3,7 +3,7 @@
   "eventModelingSchemaVersion": "1.0.0",
   "id": "order-fulfillment",
   "name": "Order Fulfillment",
-  "description": "Worked example exercising every notation in the schema: all 4 slice patterns, all 4 scenario kinds, a hotspot, a chapter, and an actor lane.",
+  "description": "Worked example exercising every notation in the schema: all 3 slice patterns, all 3 scenario kinds, a hotspot, a chapter, and an actor lane. The shipping-partner notification slice also demonstrates automation without a read model (a boundary-crossing Bridge/Reactor: event straight to command, no persisted state needed).",
   "swimlanes": [
     { "id": "sales", "name": "Sales", "kind": "team" },
     { "id": "warehouse", "name": "Warehouse", "kind": "system" },
@@ -47,7 +47,8 @@
         { "name": "items", "type": "custom", "cardinality": "list" }
       ]
     },
-    "ship-order": { "name": "Ship Order", "description": "Warehouse fulfills a pending order.", "reason": "A pending order needs to leave the warehouse." }
+    "ship-order": { "name": "Ship Order", "description": "Warehouse fulfills a pending order.", "reason": "A pending order needs to leave the warehouse." },
+    "notify-shipping-partner": { "name": "Notify Shipping Partner", "description": "Informs the external shipping partner that an order has shipped.", "reason": "The shipping partner needs to know about the shipment to process it." }
   },
   "readModels": {
     "order-summary": {
@@ -65,12 +66,6 @@
       "description": "Orders waiting to be shipped.",
       "question": "Which orders are waiting to be shipped?",
       "builtFromEventIds": ["order-placed"]
-    },
-    "shipment-translation-view": {
-      "name": "Shipment Translation View",
-      "description": "Shipment data shaped for the shipping partner's notification format.",
-      "question": "What shipment data should be forwarded to the shipping partner?",
-      "builtFromEventIds": ["order-shipped"]
     }
   },
   "screens": {
@@ -78,7 +73,8 @@
     "order-status-screen": { "name": "Order Status", "actorLaneId": "customer" }
   },
   "automations": {
-    "auto-ship-pending-orders": { "name": "Auto-Ship Pending Orders", "description": "Reacts to newly placed orders by shipping them." }
+    "auto-ship-pending-orders": { "name": "Auto-Ship Pending Orders", "description": "Reacts to newly placed orders by shipping them." },
+    "notify-shipping-partner-automation": { "name": "Notify Shipping Partner", "description": "Reacts to a shipment leaving the warehouse by notifying the external shipping partner. A Bridge: no local state needed, straight from event to command." }
   },
   "slices": [
     {
@@ -151,21 +147,22 @@
     {
       "id": "notify-shipping-partner-slice",
       "name": "Notify Shipping Partner",
-      "pattern": "translation",
+      "pattern": "automation",
       "swimlaneId": "shipping-partner",
       "chapterId": "order-lifecycle",
       "businessCapability": "Keep the external shipping partner informed of shipments",
       "status": "planned",
-      "sourceEventIds": ["order-shipped"],
-      "readModelId": "shipment-translation-view",
-      "targetEventIds": ["shipment-notified"],
+      "automationId": "notify-shipping-partner-automation",
+      "triggerEventIds": ["order-shipped"],
+      "commandId": "notify-shipping-partner",
+      "resultEventIds": ["shipment-notified"],
       "scenarios": [
         {
-          "id": "translate-shipped-event-for-partner",
-          "name": "A warehouse shipment event translates into a partner notification",
-          "kind": "translation",
-          "given": [],
-          "when": { "eventId": "order-shipped", "data": { "orderId": "order-1" } },
+          "id": "notify-partner-on-shipment",
+          "name": "A warehouse shipment automatically notifies the shipping partner",
+          "kind": "stateChange",
+          "given": [{ "eventId": "order-shipped", "data": { "orderId": "order-1" } }],
+          "when": { "commandId": "notify-shipping-partner", "data": { "orderId": "order-1" } },
           "then": { "events": [{ "eventId": "shipment-notified", "data": { "orderId": "order-1" } }] }
         }
       ]
