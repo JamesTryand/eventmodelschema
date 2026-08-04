@@ -176,3 +176,33 @@ different `swimlaneId` than the slice's own) stays a **derived, documented
 classification** of `automation`, not a stored field or a separate pattern — same
 reasoning as not storing Nebulit-style `INBOUND`/`OUTBOUND` dependency records:
 it's mechanically computable from data already in the document.
+
+## v2: `aggregate` on Event/Command (not `streamId`)
+
+Originally planned as a `streamId` hook (rest of M2), renamed after clarifying what
+was actually needed. Two distinct concepts were being conflated:
+
+- **Instance identity** — e.g. `order-123`. In event-sourcing systems this is
+  usually the same value under two names: "aggregate ID" (domain-modeling
+  vocabulary) and "stream ID" (storage vocabulary, since one stream commonly *is*
+  one aggregate instance's event log). This is runtime **data**, not schema
+  metadata — and it's already covered: M1's `idAttribute: true` flag on a `Field`
+  marks exactly this.
+- **Type classification** — "this Command/Event definition targets aggregate-type
+  `Order`," independent of any one instance. This is genuinely a static property of
+  the *definition*, comparable to Nebulit's `aggregate` (string) field.
+
+`streamId` was the wrong name for the second concept: it implies instance-level
+data (already handled by `idAttribute`), and it imports an ESDB-flavored assumption
+("stream" as a first-class primitive) that doesn't fit Kafka, which has no "stream"
+entity at all — just topics and partition keys. A storage-agnostic type-level tag
+lets a codegen tool decide independently whether that becomes one Kafka topic, one
+ESDB stream category, or something else; the instance-level partition
+key/stream name still comes from the `idAttribute`-flagged field, not this tag.
+
+Added optional `aggregate` (string) to `event` and `command` definitions only —
+not `readModel` (typically cross-cutting, spans multiple aggregates by nature) or
+`screen`/`automation` (not domain concepts in this sense). Not every
+Command/Event needs one: a boundary notification like `Notify Shipping Partner` /
+`Shipment Notified` isn't targeting a domain aggregate at all, and the worked
+example deliberately leaves those untagged to demonstrate that.
