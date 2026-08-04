@@ -92,9 +92,6 @@ that's a UX convention, not something JSON Schema's `default` keyword can enforc
 
 ## Deliberately excluded from v1
 
-- **Typed event/command/read-model payloads.** Scenario `data`/`queryParams`/`result`
-  fields are free-form objects. Out of scope until a downstream consumer
-  (`eventmodeling-codegen`) actually needs field-level types.
 - **The UI-only "screen after screen" walkthrough notation** from the cheat sheet
   ("show UI-only interaction by just showing one screen after the other — no
   commands, events"). It touches none of the 5 elements this schema models — it's
@@ -104,4 +101,30 @@ that's a UX convention, not something JSON Schema's `default` keyword can enforc
 - **Referential-integrity checking and anti-pattern detection tooling.** Both need a
   companion script/linter operating on a parsed document, not schema keywords.
 - **Multi-file `$ref` splitting.** Single file is plenty at this size; revisit if
-  `$defs` grows substantially.
+  `$defs` grows substantially — revisited in v2, see below.
+
+## v2: typed fields (M1)
+
+v1 deliberately left Event/Command/ReadModel payloads untyped (`data`/`queryParams`/
+`result` in scenarios were free-form objects). Comparing against Nebulit's official
+`event-modeling-spec` (the schema behind their actual tooling product) showed this
+was the single biggest completeness gap for real codegen use — their `Field` type
+(name/type/optional/cardinality/subfields/`idAttribute`/`pii`) lets a generator emit
+real typed DTOs, flag PII for redaction, and identify the key/id field. A separate
+architecture reference doc's framing of "Contracts (Events/Commands/DTOs) shared
+between services as independently-versioned packages" reinforced that payload
+typing is a first-order concern for the code these documents are meant to generate.
+
+Added a `field` `$def` (name/type/description/optional/cardinality/`idAttribute`/
+`pii`/recursive `subfields`) and an optional `fields` array on `event`, `command`,
+and `readModel` definitions only (not `screen`/`automation` — those aren't
+data-bearing per the methodology). Deliberately narrower than Nebulit's `Field`:
+skipped their `example`, `mapping`, `technicalAttribute`, `generated`, `schema`
+properties for now — nothing currently consuming this schema needs them, and they
+can be added later without breaking anything, since `fields` is optional throughout
+(a v1 document with no `fields` anywhere stays valid unchanged).
+
+Type enum values are lowerCamelCase (`string`, `boolean`, `integer`, `long`,
+`decimal`, `double`, `date`, `dateTime`, `uuid`, `custom`) rather than Nebulit's
+PascalCase, to match this schema's existing casing convention throughout — a
+deliberate style divergence, not an inconsistency.

@@ -67,13 +67,42 @@
       "additionalProperties": false
     },
 
+    "fieldType": {
+      "enum": ["string", "boolean", "integer", "long", "decimal", "double", "date", "dateTime", "uuid", "custom"]
+    },
+
+    "fieldCardinality": { "enum": ["single", "list"] },
+
+    "field": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/fieldType" },
+        "description": { "type": "string" },
+        "optional": { "type": "boolean" },
+        "cardinality": { "$ref": "#/$defs/fieldCardinality" },
+        "idAttribute": { "type": "boolean" },
+        "pii": { "type": "boolean" },
+        "subfields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        }
+      },
+      "additionalProperties": false
+    },
+
     "event": {
       "type": "object",
       "required": ["name", "swimlaneId"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "description": { "type": "string" },
-        "swimlaneId": { "$ref": "#/$defs/id" }
+        "swimlaneId": { "$ref": "#/$defs/id" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        }
       },
       "additionalProperties": false
     },
@@ -84,7 +113,11 @@
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "description": { "type": "string" },
-        "reason": { "type": "string" }
+        "reason": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        }
       },
       "additionalProperties": false
     },
@@ -99,6 +132,10 @@
         "builtFromEventIds": {
           "type": "array",
           "items": { "$ref": "#/$defs/id" }
+        },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
         }
       },
       "additionalProperties": false

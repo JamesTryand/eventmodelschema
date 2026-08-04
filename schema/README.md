@@ -52,8 +52,11 @@ existing documents.
 
 ## Known gaps / deliberately deferred
 
-- No typed payload schemas for individual events/commands/read-model results — the
-  `data` / `queryParams` / `result` fields in scenarios are free-form objects.
+- Event/Command/ReadModel definitions can declare an optional `fields` array (typed
+  name/type/cardinality/`idAttribute`/`pii`, see `docs/design-notes.md`), but nothing
+  cross-checks a scenario's actual `data`/`queryParams`/`result` example values
+  against those declared fields — those stay free-form objects. Declaring fields is
+  optional throughout, so this is additive and doesn't invalidate v1 documents.
 - No file-splitting (`$ref` across files) — everything lives in one file for now.
 - The `$id` (`https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json`)
   points at this repo's raw content on the `main` branch. Note `$id` is an

@@ -16,12 +16,37 @@
     "customer": { "name": "Customer" }
   },
   "events": {
-    "order-placed": { "name": "Order Placed", "description": "A customer placed an order.", "swimlaneId": "sales" },
+    "order-placed": {
+      "name": "Order Placed",
+      "description": "A customer placed an order.",
+      "swimlaneId": "sales",
+      "fields": [
+        { "name": "orderId", "type": "uuid", "idAttribute": true },
+        { "name": "customerEmail", "type": "string", "pii": true },
+        {
+          "name": "items",
+          "type": "custom",
+          "cardinality": "list",
+          "subfields": [
+            { "name": "sku", "type": "string" },
+            { "name": "qty", "type": "integer" }
+          ]
+        }
+      ]
+    },
     "order-shipped": { "name": "Order Shipped", "description": "The warehouse shipped an order.", "swimlaneId": "warehouse" },
     "shipment-notified": { "name": "Shipment Notified", "description": "The shipping partner was notified of a shipment.", "swimlaneId": "shipping-partner" }
   },
   "commands": {
-    "place-order": { "name": "Place Order", "description": "Customer submits a new order.", "reason": "A customer wants to buy items." },
+    "place-order": {
+      "name": "Place Order",
+      "description": "Customer submits a new order.",
+      "reason": "A customer wants to buy items.",
+      "fields": [
+        { "name": "customerId", "type": "uuid" },
+        { "name": "items", "type": "custom", "cardinality": "list" }
+      ]
+    },
     "ship-order": { "name": "Ship Order", "description": "Warehouse fulfills a pending order.", "reason": "A pending order needs to leave the warehouse." }
   },
   "readModels": {
@@ -29,7 +54,11 @@
       "name": "Order Summary",
       "description": "Current status of a single order.",
       "question": "What's the current status of my order?",
-      "builtFromEventIds": ["order-placed", "order-shipped"]
+      "builtFromEventIds": ["order-placed", "order-shipped"],
+      "fields": [
+        { "name": "orderId", "type": "uuid", "idAttribute": true },
+        { "name": "status", "type": "string" }
+      ]
     },
     "pending-shipments": {
       "name": "Pending Shipments",
