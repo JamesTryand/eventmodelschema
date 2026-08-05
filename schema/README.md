@@ -49,6 +49,23 @@ deliberately does **not** enforce:
 These are all intentionally left to a **separate lint/review layer**, run at a later
 gate (e.g. merge or publish) rather than at parse time — see `docs/design-notes.md`.
 
+## Splitting across multiple files
+
+A document can be split into a manifest (`manifest.schema.json`) plus one file per
+registry plus one file per slice, and joined back losslessly — see
+`docs/design-notes.md` ("v2 M3") for the design. Reference tooling:
+
+```sh
+node scripts/split.js examples/order-fulfillment.json examples/order-fulfillment-split
+node scripts/join.js examples/order-fulfillment-split output.json
+npm run roundtrip   # split -> join -> deep-compare against the original, for both examples
+```
+
+`examples/order-fulfillment-split/` is a committed worked example of the layout.
+Slice/registry files are referenced by explicit path in the manifest, not
+discovered by naming convention — so they can be organized however's useful (flat,
+by swimlane, by pattern-role) without any tooling changes.
+
 ## Versioning
 
 `eventModelingSchemaVersion` in each document is a semver string (`"1.0.0"` for this
@@ -62,7 +79,6 @@ existing documents.
   cross-checks a scenario's actual `data`/`queryParams`/`result` example values
   against those declared fields — those stay free-form objects. Declaring fields is
   optional throughout, so this is additive and doesn't invalidate v1 documents.
-- No file-splitting (`$ref` across files) — everything lives in one file for now.
 - The `$id` (`https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json`)
   points at this repo's raw content on the `main` branch. Note `$id` is an
   identifier, not a resolvability guarantee — it doesn't need to be fetchable to be

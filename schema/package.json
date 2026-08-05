@@ -4,7 +4,11 @@
   "version": "1.0.0",
   "description": "JSON Schema for EventModeling documents.",
   "scripts": {
-    "validate": "ajv validate -s eventmodeling.schema.json -d \"examples/*.json\" --spec=draft2020 -c ajv-formats"
+    "validate": "ajv validate -s eventmodeling.schema.json -d \"examples/*.json\" --spec=draft2020 -c ajv-formats",
+    "validate:manifest": "ajv validate -s manifest.schema.json -d \"examples/*/manifest.json\" --spec=draft2020 -c ajv-formats",
+    "split": "node scripts/split.js",
+    "join": "node scripts/join.js",
+    "roundtrip": "node scripts/roundtrip-check.js examples/order-fulfillment.json && node scripts/roundtrip-check.js examples/minimal.json"
   },
   "devDependencies": {
     "ajv-cli": "^5.0.0",

@@ -205,4 +205,57 @@ not `readModel` (typically cross-cutting, spans multiple aggregates by nature) o
 `screen`/`automation` (not domain concepts in this sense). Not every
 Command/Event needs one: a boundary notification like `Notify Shipping Partner` /
 `Shipment Notified` isn't targeting a domain aggregate at all, and the worked
+example leaves those untagged deliberately.
+
+## v2 M3: multi-file composition layer
+
+A single document is fine at example scale but doesn't stay so as a real model
+grows — and Nebulit's per-slice-file approach (each slice a standalone file) was
+the direct comparison point that started this. Their approach duplicates full
+element definitions into every slice that uses them, because they split by slice
+*without* first solving element identity; we didn't make that mistake in v1 (flat
+id-keyed registries, single definition per id), so splitting and rejoining our
+documents can be lossless where theirs can't.
+
+**Key decision: this needed no change to the document schema's logical shape at
+all.** `eventmodeling.schema.json` still validates exactly the same single-document
+shape it always has. What's new is a **manifest** (`manifest.schema.json`) plus a
+**pure, mechanical split/join transform** (`scripts/split.js`, `scripts/join.js`)
+layered on top:
+
+- The manifest owns `swimlanes`, top-level metadata, which file holds each
+  non-empty registry, and — critically — the **ordered list of slice file paths**.
+  Order lives in exactly one place. It is *not* reintroduced as a per-slice `index`
+  field, which would recreate the dual-source-of-truth flaw already identified in
+  Nebulit's schema (`Slice.index` *and* array position, able to disagree).
+- Slice files and registry files are referenced by **explicit path**, not
+  discovered by filename convention. This is what makes arbitrary reorganization
+  free: someone can lay slice files out flat, grouped by swimlane, grouped by
+  pattern-role (`slices/bridge/`, `slices/denormalizer/`, etc. — a real idea raised
+  during design, folding automations by whether their `triggerEventIds` cross a
+  swimlane boundary), or any other scheme, and the manifest just points at wherever
+  they ended up. No classification logic needed in the tooling itself for this.
+- `join.js` reassembles a manifest + its referenced files into exactly the shape
+  `eventmodeling.schema.json` validates, including re-stamping the top-level
+  `$schema` pointer (read from the canonical schema's own `$id`, not duplicated) —
+  a joined document is always meant to validate against that schema, regardless of
+  whether the manifest itself declares one. `split.js` is the exact inverse.
+- `scripts/roundtrip-check.js` proves the two are true inverses: split a known-good
+  document, join it back, deep-compare (`assert.deepStrictEqual` — order-independent
+  for objects, order-preserving for arrays, which is what's wanted for `slices`/
+  `swimlanes`) against the original. Both worked examples pass (`npm run roundtrip`).
+- `manifest.schema.json` validates only the manifest's own skeleton (paths,
+  swimlanes, metadata) — it deliberately duplicates the tiny `id`/`swimlane` shapes
+  from the main schema rather than fighting cross-file `$ref` resolution for two
+  defs that rarely change; real structural correctness is re-checked against
+  `eventmodeling.schema.json` once joined, so this duplication is low-risk.
+- `examples/order-fulfillment-split/` is a committed, permanent worked example of
+  the layout (generated from `examples/order-fulfillment.json` via `npm run
+  split`), not just an ephemeral test artifact.
+
+**Deliberately not done**: a Nebulit-format import/export converter, built on this
+same join/split seam. Scoped as a separate follow-on (M5), not core v2 — exporting
+would need to duplicate elements per-slice per their model (lossy in guarantees,
+not data), and importing needs a reconciliation pass for any inconsistent
+duplicates found in a real Nebulit document.
 example deliberately leaves those untagged to demonstrate that.
