@@ -24,12 +24,14 @@ that generates code/infrastructure from documents conforming to the schema.
 - `resources/README.md` — points to the third-party reference document the schema
   was drafted from (Nebulit's "Event Modeling Cheat Sheet", not redistributed here)
   and to `docs/methodology-notes.md` for its extracted conceptual content.
+- `CHANGELOG.md` — what changed at each `eventModelingSchemaVersion`.
 
 ## Status
 
-v2 in progress: typed fields, an `aggregate` type-level tag on Event/Command, and a
-multi-file composition layer have landed since v1; a companion lint tool remains
-future work. Structural validation only — see `schema/README.md` for exactly what
+`eventModelingSchemaVersion` `2.0.0` — see `CHANGELOG.md` for what changed since
+1.0.0 (typed fields, `translation` removed, `aggregate` tagging, a multi-file
+composition layer). A companion lint tool remains future work. Structural
+validation only — see `schema/README.md` for exactly what
 that means and what's deliberately left to a separate lint/review layer.
 
 ## Related projects
