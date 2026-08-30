@@ -76,6 +76,18 @@ documented as the value an authoring tool should pre-fill for a brand-new slice 
 that's a UX convention, not something JSON Schema's `default` keyword can enforce
 (it only affects generation/documentation tooling, not validation).
 
+The value set is a design-session board vocabulary, not part of the structural
+contract a code generator reads — but it is a closed `enum`, so a value outside it
+is a hard validation failure, and because `status` is defined on `sliceBase`
+(referenced from `slice`'s `allOf`), that failure drops `sliceBase`'s evaluated
+properties and the sibling `unevaluatedProperties: false` on `slice` then reports
+`id`/`name`/`swimlaneId`/`chapterId`/`businessCapability`/`status` as unevaluated —
+a cascade that looks like a defect in the `allOf` + `if`/`then` shape but is only
+ever an out-of-enum `status` (or any other `sliceBase` keyword failing). `2.1.0`
+added `"accepted"` after real authoring hit exactly this: a `planned → accepted`
+sign-off step with no enum value to land on. When extending the set, prefer adding
+a value over leaving authors to overload an ill-fitting one.
+
 ## Deliberately excluded from v1
 
 - **The UI-only "screen after screen" walkthrough notation** from the cheat sheet
