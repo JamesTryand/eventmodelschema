@@ -271,3 +271,77 @@ would need to duplicate elements per-slice per their model (lossy in guarantees,
 not data), and importing needs a reconciliation pass for any inconsistent
 duplicates found in a real Nebulit document.
 example deliberately leaves those untagged to demonstrate that.
+
+## v2.2.0: derived read-model fields, stream-ending events, scoped queries
+
+Came from real codegen use (`platform/codegen-handwrite-gaps`, working the
+timesheets model through `dotnetcqrs`/`pocketcqrs`), not from re-reading the
+methodology cold. A generic single-event field-merge — copy whichever payload keys
+share a name with a read-model column, fold every event as "this stream now
+exists" — covers most of a real model but breaks on three shapes that recur
+often enough to be worth naming rather than hand-writing every time:
+
+- **A boolean that toggles between two named events** (e.g. an SSO-enabled flag
+  set by one event, cleared by another) — the generic copy never fires, because
+  neither event's payload literally carries that field.
+- **A per-row count/sum rolled up from a *different* stream** (e.g. how many
+  staff are currently assigned to a project — the assignment events live on the
+  assignment stream, not the project's) — a single-stream field-merge has no
+  `GROUP BY` concept at all.
+- **A stream that can be "created" more than once across its lifetime** (assign,
+  unassign, re-assign) — the generic fold only ever sets a stream's existence to
+  true; nothing ever tells it an event should retract that. This is the same root
+  cause as the two above (fold-only-sets), just showing up in the write-side
+  decider's existence guard rather than a read-side projection.
+- **A query scoped through a relationship the read model doesn't itself carry**
+  (a Project Manager's view of flagged entries, scoped to the projects they
+  manage — a fact that lives in a *different* read model). Not a fold problem,
+  but the same underlying gap: nothing in the document states the relationship a
+  correct query needs.
+
+**Why schema-level and not "just hand-write it every time":** the whole point of
+generating code from a document is that a *class* of recurring shape gets solved
+once, in the generator, driven by a declaration — the same reasoning that already
+motivated `field`'s typed shape in v2. Leaving these four as permanent hand-write
+gaps means re-solving the same problem in every generated backend, which is
+exactly the kind of drift risk regeneration is supposed to eliminate.
+
+**Deliberately explicit, not inferred.** An earlier candidate for the third case
+was inferring "this event ends the stream" from a scenario proving a create
+succeeds after some prior history on the same stream. Rejected: this schema's own
+rule from the start ("no attempt to verify that ids resolve... deriving one from
+the swimlane would silently merge unrelated stream families") already argues
+against silently deriving structural facts from data shape, and a document
+author may not have written the very scenario the inference needs yet — the
+declaration should not depend on how thoroughly the model happens to be tested.
+
+**Concretely:**
+- `field` gains an optional `derivation` (`$def` `fieldDerivation`), a `kind`-discriminated
+  shape mirroring `scenario`/`slice`'s existing `if`/`then` pattern: `toggle`
+  (`onEventIds`/`offEventIds`/`initial`), `count`
+  (`incrementOnEventIds`/`decrementOnEventIds`/`rowKeyField`), `sum`
+  (`addOnEventIds`/`subtractOnEventIds`/`amountField`/`rowKeyField`). `rowKeyField`
+  names the payload field on the counted/summed events that identifies the target
+  row when the events aren't on the read model's own stream; a generator may
+  default it to the read model's own key-field name when omitted.
+- `event` gains an optional `endsStream` (boolean) — the write-side analogue of a
+  read-model `toggle`'s "off" event, for the one piece of state every generator
+  already synthesizes itself (a stream's existence) rather than a value declared
+  anywhere in the document.
+- `readModel` gains an optional `scopes` (array of `$def` `readModelScope`):
+  `{ param, via: { readModelId, matchParamTo, selectField, filterLocalField } }`,
+  declaring that a query param resolves to a filtering set via a different read
+  model, rather than naming one of this read model's own columns. Placed on the
+  read model rather than the querying slice — the scoping *capability* is a
+  property of the data, and one declaration then serves every slice that queries
+  it (a scope-free query just never supplies the param).
+- All three are optional and additive; a 2.1.0 document validates unchanged
+  against 2.2.0. As with `builtFromEventIds` today, this schema does not verify
+  that an `onEventIds`/`via.readModelId` reference actually resolves to a real
+  element — that stays the future methodology-lint's job (see "Structural
+  validation vs. methodology validation," above), not a JSON Schema concern
+  (no cross-property lookup keyword exists for it anyway).
+- Deliberately NOT added: a formal aggregate-state object. `endsStream` is the
+  one flag needed to make the synthesized `Exists` correct across a full
+  create/end/re-create lifecycle; a general aggregate-state schema is a bigger
+  change with no second use case yet.

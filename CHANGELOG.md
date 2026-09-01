@@ -3,6 +3,28 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 2.2.0
+
+**Additive (non-breaking):**
+- `field` gains an optional `derivation` (new `$def` `fieldDerivation`): computes a
+  read-model field as a fold over named events instead of copying a same-named
+  payload key. Three kinds — `toggle` (`onEventIds`/`offEventIds`/`initial`),
+  `count` (`incrementOnEventIds`/`decrementOnEventIds`/`rowKeyField`), `sum`
+  (`addOnEventIds`/`subtractOnEventIds`/`amountField`/`rowKeyField`).
+- `event` gains an optional `endsStream` (boolean, default `false`) — marks an
+  event that resets a stream's synthesized existence to `false`, the write-side
+  counterpart of a `toggle`'s "off" event.
+- `readModel` gains an optional `scopes` (new `$def` `readModelScope`, array of
+  `{ param, via: { readModelId, matchParamTo, selectField, filterLocalField } }`):
+  declares that a stateView query param resolves through a different read model
+  rather than naming one of this read model's own columns.
+
+See `docs/design-notes.md` ("v2.2.0: derived read-model fields, stream-ending
+events, scoped queries") for the four recurring codegen gaps this closes and why
+each shape landed where it did.
+
+A 2.1.0 document validates unchanged against 2.2.0.
+
 ## 2.1.0
 
 **Additive (non-breaking):**

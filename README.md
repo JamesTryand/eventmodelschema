@@ -28,11 +28,12 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `2.1.0` — see `CHANGELOG.md` for what changed since
+`eventModelingSchemaVersion` `2.2.0` — see `CHANGELOG.md` for what changed since
 1.0.0 (typed fields, `translation` removed, `aggregate` tagging, a multi-file
-composition layer, and the `sliceStatus` value `accepted`). A companion lint tool
-remains future work. Structural validation only — see `schema/README.md` for
-exactly what that means and what's deliberately left to a separate lint/review
+composition layer, the `sliceStatus` value `accepted`, and derived read-model
+fields / stream-ending events / scoped queries). A companion lint tool remains
+future work. Structural validation only — see `schema/README.md` for exactly what
+that means and what's deliberately left to a separate lint/review
 layer.
 
 ## Related projects
