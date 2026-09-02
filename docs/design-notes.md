@@ -345,3 +345,72 @@ declaration should not depend on how thoroughly the model happens to be tested.
   one flag needed to make the synthesized `Exists` correct across a full
   create/end/re-create lifecycle; a general aggregate-state schema is a bigger
   change with no second use case yet.
+
+## v2.3.0: grouped-rollup derivation (`groupBy`)
+
+Came from the same real-model pressure as v2.2.0 (`platform/eventmodeling-verify-gaps`,
+working `project/timesheets`'s `payroll-periods` read model through `dotnetcqrs`/
+`pocketcqrs`): `field.derivation`'s three v2.2.0 kinds (`toggle`/`count`/`sum`) only ever
+produce a single scalar value per read-model row. `payroll-periods.staffTotals` needs a
+genuinely different shape — a *list* of `{staffId, outOfHoursHours, payrollAmount}` rows
+nested inside each payroll-period row, one row per distinct staff member who logged
+out-of-hours time in that period. This is the second time a grouped-rollup shape has
+come up (the first, `count`/`sum`'s own `rowKeyField`, only covers "many independent
+top-level read-model rows keyed by X," not "one nested list inside a single row").
+
+**Design question this needed to resolve first** (flagged open since 2026-09-02,
+`NEEDS.md`): does the nested list-of-objects shape need a new `Field`-level concept, or
+does a single generalized `derivation.kind` value suffice? Resolved as the latter, for
+one reason: `field` already has everything the *shape* needs — `cardinality: "list"` +
+recursive `subfields` (added in v2, for typed nested objects generally) already
+describes "a field whose value is a list of `{staffId, outOfHoursHours, payrollAmount}`
+records." What was missing was only the *derivation* — how those rows and their values
+get computed — not the shape itself. So `groupBy` is a `fieldDerivation` kind like the
+other three, requiring only one new property (`groupByField`, the payload field whose
+distinct values become the list's rows), and each **subfield** carries its own ordinary
+`derivation` (`sum`/`count`/`toggle`, recursively — `field.subfields` items are already
+full `field` objects) computed *within* that subfield's group rather than across the
+whole read model. No new recursion or `$def` was needed for this — `field`'s existing
+recursive shape already gives it for free. The field named by `groupByField` itself
+needs no `derivation` — its value is just the grouping key's own value, copied straight
+from the matching event payload, the same way an un-derived field already copies a
+same-named payload key today.
+
+**Enforced structurally, unlike id-reference fields:** `field` gains a same-object
+`allOf`/`if`/`then` (mirroring `scenario`/`slice`'s existing pattern) requiring
+`cardinality: "list"` and a non-empty `subfields` whenever `derivation.kind` is
+`groupBy` — this is a same-object property relationship (not a cross-document id
+reference like `onEventIds`/`via.readModelId`), so unlike those, it's cheap and
+worthwhile to enforce at the JSON Schema level rather than deferring to the future
+methodology-lint. Still NOT enforced (same reasoning as every other `*EventIds`/
+`*Field` reference in this schema): that `groupByField` actually names one of the
+declared `subfields`, or that a nested subfield's own `addOnEventIds`/etc. actually
+resolve to real events — those stay structural-validity gaps by design, same as
+`onEventIds` always has been.
+
+**Deliberately narrow scope — what this does NOT solve.** `payroll-periods.staffTotals`
+in the real model also needs each contributing event correlated to the specific
+payroll-period row it belongs to (`time-entry-logged`'s `taskDate` falling within that
+row's own `periodStart`/`periodEnd`) and filtered to only entries where
+`outOfHoursHours` is non-zero. Both are deliberately **out of scope here** — the former
+is the still-undecided `dateRange` capability (`platform/eventmodeling-verify-gaps`
+Group C item 3, the bigger of that issue's two open design questions), and folding it
+into `groupBy` now would have pre-committed part of that separate decision. A document
+using `groupBy` alone gets the grouping/fold mechanism generated; row-scoping by date
+range and value-filtering the contributing events still need either a small hand-written
+wrapper or the future `dateRange` capability landing on top. Chosen deliberately (over
+bundling both in one change) to keep this addition shippable and independently useful
+for grouped-rollup shapes that don't need date scoping at all.
+
+**Concretely:**
+- `fieldDerivationKind` gains `"groupBy"`. Its `fieldDerivation` branch requires one
+  property: `groupByField` (string) — the source event payload field whose distinct
+  values become one row each in the parent field's list.
+- `field` gains a cross-property `allOf`/`if`/`then`: `derivation.kind: "groupBy"`
+  requires `cardinality: "list"` and non-empty `subfields`.
+- No changes to `event`, `command`, `readModel`, or any other `$def`.
+- Additive; a 2.2.0 document validates unchanged against 2.3.0. Verified: `npm run
+  validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest document
+  modeling `payroll-periods.staffTotals` with `groupBy` + nested `sum` subfields
+  validates; two malformed variants (missing `groupByField`; `groupBy` on a field
+  missing `cardinality`/`subfields`) are each rejected with a single clean error.

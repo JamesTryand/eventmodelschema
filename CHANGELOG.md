@@ -3,6 +3,23 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 2.3.0
+
+**Additive (non-breaking):**
+- `fieldDerivationKind` gains `"groupBy"` — a nested/grouped-rollup fold, computing a
+  `cardinality: "list"` field's `subfields` as one row per distinct value of a source
+  event payload field (`groupByField`), with each subfield computed within its group by
+  an ordinary nested `sum`/`count`/`toggle` `derivation`. `field` gains a matching
+  cross-property constraint: `derivation.kind: "groupBy"` requires `cardinality: "list"`
+  and a non-empty `subfields`.
+
+See `docs/design-notes.md` ("v2.3.0: grouped-rollup derivation (`groupBy`)") for why
+this reuses `field`'s existing recursive `subfields` shape rather than adding a new
+`$def`, and for what it deliberately does not solve (row-scoping by date range,
+value-filtering contributing events — see the still-open `dateRange` capability).
+
+A 2.2.0 document validates unchanged against 2.3.0.
+
 ## 2.2.0
 
 **Additive (non-breaking):**
