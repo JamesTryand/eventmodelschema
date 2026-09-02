@@ -414,3 +414,75 @@ for grouped-rollup shapes that don't need date scoping at all.
   modeling `payroll-periods.staffTotals` with `groupBy` + nested `sum` subfields
   validates; two malformed variants (missing `groupByField`; `groupBy` on a field
   missing `cardinality`/`subfields`) are each rejected with a single clean error.
+
+## v2.4.0: `readModel.filters` — single-field date-range query filtering
+
+The other half of the same `dateRange` gap `groupBy` (2.3.0) deliberately left out:
+`export-pm-slice`'s real scenario (`platform/eventmodeling-verify-gaps` Group C item 3,
+`project/timesheets`'s `time-entries` read model) needs its `taskDate` field range-tested
+against `last7Days`/`lastCalendarMonth`/a `custom` `from`/`to` pair — and at least two
+sibling export/report scenarios in the same model (`export-manager-slice`,
+`export-staff-slice`) need the identical shape. Grounded directly against the
+`dotnetcqrs` codebase (`platform/eventmodeling-verify-gaps`, this session) before
+designing, not assumed: `readModel.scopes` (2.2.0) has no production consumer today —
+only the verify harness's `SelectRowsAsync` reads it, to *simulate* what a real query
+gateway would do (`HarnessProgram.txt:206`'s own comment says so) — and that same harness
+currently skips any object-shaped `queryParams` value outright
+(`HarnessProgram.txt:190-195`), which is exactly the shape a `dateRange` param takes, so
+`export-pm-slice` fails today on unfiltered rows, not close-but-wrong filtering.
+
+**Deliberately narrow, same move as `groupBy`.** A single-field WHERE-range filter with
+named presets only — explicitly NOT `staffTotals`-style cross-row/cross-stream
+correlation (`taskDate` falling inside a *different row's* `periodStart`/`periodEnd`).
+Stage 3a of the `groupBy` execution plan already proved that shape doesn't generalize
+under a schema-level derivation and had to be hand-written
+(`Payroll/PayrollPeriodsQuery.cs`) — `export-pm-slice`'s actual need is a plain
+single-field range filter against one of the read model's own columns, a much smaller
+and more clearly reusable capability than the original "comparable to `groupBy`"
+estimate assumed.
+
+**Design question this needed to resolve: presets closed or extensible?** Resolved as a
+closed `enum` (`$def` `dateRangePreset`: `last7Days`/`lastCalendarMonth`/`custom`), same
+precedent as `sliceStatus`/`fieldDerivationKind` elsewhere in this schema — every named
+preset is date math a generator must actually implement, so an open-ended string here
+would let a document declare a preset no generator could ever honor. Extending the set
+later is a minor, additive version bump (exactly how `sliceStatus` gained `"accepted"`
+in 2.1.0 and `fieldDerivationKind` gained `"groupBy"` in 2.3.0), not a design change.
+
+**Runtime value shape is a documented convention, not a schema constraint** — consistent
+with this schema's existing boundary (`data`/`queryParams`/`result` in scenarios stay
+untyped `object`, see "Structural validation vs. methodology validation," above).
+Confirmed directly against `project/timesheets`'s real model (`export-manager-slice`,
+`export-pm-slice`, `export-staff-slice` scenarios), which already uses this exact shape
+predating this schema change: a `queryParams` value for a `dateRange`-filtered param is
+`{ "kind": "<preset>" }` for a named preset, or `{ "kind": "custom", "from": "<ISO
+date>", "to": "<ISO date>" }` for the custom bound — `from`/`to` are fixed property
+names, not configurable per-filter, since there is exactly one bounded-range shape to
+express. `kind` (not e.g. `preset`) as the discriminator property name inside that value
+was chosen to match the schema's own established discriminator-naming convention
+(`scenario.kind`, `fieldDerivation.kind`) — and it was already the name the real model's
+author had independently picked before this schema change existed, which is taken as
+confirmation the convention reads naturally to someone authoring a document by hand, not
+just to the schema's own internal consistency.
+
+**Concretely:**
+- `filterKind` (new `$def`, currently one value: `"dateRange"`) and `dateRangePreset`
+  (new `$def`: `last7Days`/`lastCalendarMonth`/`custom`).
+- `readModelFilter` (new `$def`): `{ param, field, kind }` always required, plus a
+  `kind`-discriminated `allOf`/`if`/`then` (mirroring `fieldDerivation`/`scenario`/
+  `slice`'s existing pattern) requiring `presets` (non-empty, unique, `dateRangePreset`
+  values) whenever `kind` is `"dateRange"` — the only kind today, but shaped so a future
+  second `kind` (e.g. a numeric range) doesn't need restructuring. `param` names the
+  query param (mirrors `readModelScope.param`); `field` names the local read-model
+  column being range-tested (mirrors `readModelScope.via.filterLocalField`, but no `via`
+  indirection is needed here since the target field is always this read model's own).
+- `readModel` gains an optional `filters` (array of `readModelFilter`), sibling to
+  `scopes`.
+- No changes to `event`, `command`, `scenario`, or any other `$def` — `queryParams` stays
+  an untyped `object`, per the convention above.
+- Additive; a 2.3.0 document validates unchanged against 2.4.0. Verified: `npm run
+  validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest document
+  modeling `export-pm-slice`'s real dateRange need (`last7Days` and `custom` scenarios
+  against `time-entries.taskDate`, alongside its existing `pmStaffId` scope) validates;
+  two malformed variants (a `dateRange` filter missing `presets`; a `presets` entry
+  outside the closed enum) are each rejected with a single clean error.
