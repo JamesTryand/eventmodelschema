@@ -486,3 +486,84 @@ just to the schema's own internal consistency.
   against `time-entries.taskDate`, alongside its existing `pmStaffId` scope) validates;
   two malformed variants (a `dateRange` filter missing `presets`; a `presets` entry
   outside the closed enum) are each rejected with a single clean error.
+
+## v2.5.0: command authorization
+
+Came from `platform/command-authorization` (`project/timesheets`'s Phase 04g auth
+work): every command in that model was either ungated or hand-gated by an ad-hoc
+check written directly in a literal host route (`StaffOnboardingHost.cs`,
+`TimeEntryFlaggingHost.cs`, `ImpersonationHost.cs`) — the same class of recurring
+hand-write this schema has repeatedly chosen to invest in generating instead
+(`endsStream`/`derivation`/`scopes`/`groupBy`/`filters` all followed this same
+path). The real model surfaced four distinct shapes, not one: a plain role
+requirement; a role requirement conditional on a payload field's value; an
+ownership requirement (actor must own the target row); and a role-bypass-else-
+scoped-membership requirement. All four are additive, all four are grounded in
+real commands and, notably, in real *already-hand-written* code this addition
+replaces rather than merely supplements.
+
+**Why `requiredOwnership` needed a `via` lookup, not a bare field name.**
+An early sketch used a bare `targetField`. Checked against the real dispatch
+architecture before finalizing: authorization has to be decided *before* a
+command's decider runs (no earlier hook exists to inspect current aggregate
+state), off a read model, the same way `TimeEntryFlaggingHost.AuthorizeAsync`
+already does its own project-membership check by hand today. So `via` reuses
+`readModelScope`'s vocabulary (`readModelId`, plus `keyField`/`ownerField`
+naming the lookup and the compared field) rather than inventing new names for
+the same idea.
+
+**Why `requiredOwnership` and `scope` stayed two declarations instead of one.**
+They share a first step (resolve a value from the target's own read-model row)
+but diverge on the second: `requiredOwnership` compares that value to the
+actor's own id directly (equality); `scope` checks the actor's own id is a
+*member of a set* resolved through a second read model (membership) — the same
+semi-join shape `readModelScope` already uses for query-time filtering, just
+triggered at authorization time instead. A single declaration covering both
+would need an optional second stage whose mere presence or absence silently
+switches the check's meaning — exactly the kind of implicit derivation this
+schema has consistently rejected elsewhere (see `endsStream`, deliberately
+explicit rather than inferred from scenario shape). Two named declarations,
+sharing a generator-side evaluator for the bypass-then-resolve order, keep the
+meaning of each visible from its own name.
+
+**Why `fieldGatedRole` got a real shape instead of staying a hand-write
+exception.** The model has two commands needing it (`onboard-staff`,
+`change-staff-role`), not one, with an identical `{field, value, requiredRole}`
+shape — clearing the same "recurs, don't hand-write it a second time" bar
+`groupBy`/`filters` each used before being built.
+
+**What this addition does NOT need to solve: where a role claim like
+"administrator" actually comes from.** `requiredRole` is a plain
+`commandRole` (kebab-case id, or an array of them) — not an enum closed over
+any particular aggregate's role field, the same "doesn't verify a reference
+resolves" boundary every `*EventIds`/`via.readModelId` field in this schema
+already has. A role value sourced from outside any `staff`-shaped aggregate
+entirely (`platform/command-authorization`'s own "Administrator" decision —
+a separate concept, not a `staff.role` value) is exactly as well-formed under
+`requiredRole` as one sourced from it. This schema is deliberately indifferent
+to how an actor's role claim gets populated at runtime — that's a host-layer/
+authentication-enrichment concern, same "auth is deliberately not built into
+this library" split `dotnetcqrs`'s `CqrsGatewayEndpoints` already states for
+authentication itself, now extended to authorization.
+
+**Concretely:**
+- `command` gains four optional properties: `requiredRole` (new `$def`
+  `commandRole`), `fieldGatedRole` (new `$def` `commandFieldGatedRole`),
+  `requiredOwnership` (new `$def` `commandOwnership`), `scope` (new `$def`
+  `commandScope`) — see `CHANGELOG.md`'s 2.5.0 entry for each `$def`'s full
+  shape.
+- No changes to `event`, `readModel`, `scenario`, or any other `$def`.
+- Additive; a 2.4.0 document validates unchanged against 2.5.0. Verified:
+  `npm run validate`/`roundtrip`/`validate:manifest` all green unchanged; a
+  smoketest document exercising all four new keywords (`requiredRole` in both
+  single-value and array form, `fieldGatedRole`, `requiredOwnership`, and
+  `scope` with a `bypassRoles` entry) validates; three malformed variants
+  (`requiredOwnership` missing `via`; `scope` missing `memberOfVia`;
+  `fieldGatedRole` missing `requiredRole`) are each rejected with a single
+  clean error.
+- One implementation-level refinement beyond the design proposal's literal
+  text: `commandFieldGatedRole.value` uses `oneOf` over `string`/`boolean`/
+  `number` rather than a `type` array — ajv's strict mode flags bare
+  `"type": [...]` union arrays (`strictTypes`), and this schema had no prior
+  precedent for that form anyway; `oneOf` is the idiom already used elsewhere
+  here (`hotspotTarget`, `commandRole`).

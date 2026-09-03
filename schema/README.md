@@ -69,7 +69,7 @@ by swimlane, by pattern-role) without any tooling changes.
 ## Versioning
 
 `eventModelingSchemaVersion` in each document is a semver string; current is
-`"2.4.0"`. Bump the major for a breaking change (one that could invalidate
+`"2.5.0"`. Bump the major for a breaking change (one that could invalidate
 existing documents), the minor for an additive one — see `../CHANGELOG.md` for
 what changed at each version.
 
