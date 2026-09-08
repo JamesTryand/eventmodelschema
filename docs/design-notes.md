@@ -610,3 +610,78 @@ its own to patch a clock in.
   adding `asOf: "2026-09-06"` alongside an existing `dateRangePreset` `queryParams` value
   validates; a malformed variant (`asOf` not matching the `date` format, e.g.
   `"2026-13-40"`) is rejected.
+
+## v2.7.0: `readModel.requiredRole` — the read-side mirror of command authorization
+
+Raised by `project/timesheets` (`build-plan/00-decisions-and-blockers.md` D12,
+decided 2026-09-08). 2.5.0 gave `command` a full authorization vocabulary
+(`requiredRole`/`fieldGatedRole`/`requiredOwnership`/`scope`), and `dotnetcqrs`'s
+`CommandAuthorizationGenerator` now enforces it in every generated command route. The
+read side never got the equivalent: every generated `GET /api/query/{collection}`
+route requires only *an* authenticated actor, never a role. `timesheets`' own
+`scopes`-declared read models (`time-entries`, `flagged-entries`, `invoices`,
+`project-staff`) are correctly forced to the caller's own identity on their scope
+param (a hand-written Phase 04g fix, predating this capability) — but every read model
+*without* a `scopes` declaration (`staff-roster`, including `hourly_cost`; `customers`;
+`projects`; the rate-card family; `payroll-periods`; ...) returns its full tenant-wide
+contents to any signed-in user regardless of role. Confirmed directly in a real
+browser: a Staff-role dev-login account reading `/staff` got the entire roster back,
+hourly costs included, not a 403.
+
+**Why a generated capability rather than a hand-written guard.** This is exactly the
+progression `command.requiredRole` itself already went through: Phase 04g's
+`[HAND]`-flagged per-command guards (`TimeEntryFlaggingHost.AuthorizeAsync`,
+`ImpersonationHost`, ...) were built first, then replaced wholesale once the shape
+repeated across enough commands to clear the "recurs, don't hand-write it a second
+time" bar `groupBy`/`filters`/`fieldGatedRole` each used before being built (see the
+2.5.0 entry above). The read side is the direct mirror of a shape that's already
+cleared that bar once — there's no reason to make it re-clear it via a second round of
+hand-written guards in `project/timesheets`'s `Program.cs` first.
+
+**Why the exact same value shape as `command.requiredRole`, not a new one.**
+`timesheets`' own D12 asked specifically whether a read model could require *any one
+of several* roles, not just one. It already can, for commands: `requiredRole` was
+never a single role id — it's "a role id, or a non-empty array of role ids," checked
+by membership, not equality (`CommandAuthorization.AuthorizeAsync`'s
+`requiredRole.Contains(ownRole)`). `readModel.requiredRole` reuses that exact shape
+rather than inventing a narrower one, so e.g. `invoices` can declare
+`["manager", "project-manager"]` directly.
+
+**Why the backing `$def` is renamed `commandRole` → `roleRequirement`.** Purely
+internal — `$def` names never appear in an authored document, only in `$ref`
+resolution, so this changes nothing a document author writes. But `commandRole` was
+already imprecise before this release (`commandFieldGatedRole.requiredRole` reuses it
+too, and that property lives on a command-authorization *sub*-object, not `command`
+itself), and stays imprecise if a `readModel` property references a `$def` named
+after a different top-level concept. Renamed rather than left as-is or duplicated
+into a second identical `$def` — this schema has no precedent for two `$defs` with
+identical shape and meaning, and reusing the name without renaming would read as
+`readModel.requiredRole` borrowing from `command`'s vocabulary rather than both
+sharing a genuinely concept-neutral one.
+
+**What this addition does NOT solve.** Two things, both flagged explicitly in D12 for
+whoever builds the generator side, not resolved here:
+- *Consuming* `requiredRole` — a `ReadModelAuthorization` policy table + evaluator in
+  every generated query route, structurally parallel to `CommandAuthorization.cs` — is
+  `platform/eventmodeling-codegen`'s job. This schema only declares the shape.
+- The interaction between a `scopes`-forced param and a coarser `requiredRole` gate on
+  the same read model (e.g. does a Manager's tenant-wide `invoices` view hit the same
+  query route as a `project-manager`'s `pmStaffId`-scoped one, with the param simply
+  omitted, or a separate path?) isn't a schema question — it depends on how
+  `dotnetcqrs`'s existing scope-forcing is actually wired today. D12 flags it as an
+  open nuance for the generator work, not something this addition needs to answer.
+
+**Concretely:**
+- `readModel` gains one optional property, `requiredRole` (`$ref`
+  `#/$defs/roleRequirement`).
+- The `$def` previously named `commandRole` is renamed `roleRequirement`; its shape is
+  unchanged (`anyOf(id, non-empty array of id)`). `command.requiredRole` and
+  `commandFieldGatedRole.requiredRole` now reference the renamed `$def` — no behavior
+  change for either.
+- No changes to `event`, `command`'s own property list, `scenario`, or any other
+  `$def` beyond the rename.
+- Additive; a 2.6.0 document validates unchanged against 2.7.0. Verified: `npm run
+  validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest document
+  declaring `requiredRole` on two read models, one as a single role id and one as a
+  two-element array, validates; a malformed variant (`requiredRole: []`, violating
+  `minItems: 1` on the array branch) is rejected with a clean `anyOf` failure.
