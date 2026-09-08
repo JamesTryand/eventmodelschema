@@ -567,3 +567,46 @@ authentication itself, now extended to authorization.
   `"type": [...]` union arrays (`strictTypes`), and this schema had no prior
   precedent for that form anyway; `oneOf` is the idiom already used elsewhere
   here (`hotspotTarget`, `commandRole`).
+
+## v2.6.0: `readModelQuery.asOf` — scenario-level clock pin
+
+Raised by `project/timesheets` (`NEEDS.md`/`NEEDS-FOLLOWUP-PROMPT.md` item 8), the
+other half of the gap `filters` (2.4.0) left open: a `dateRangePreset`-filtered
+scenario pins its `given` event data to a fixed date, but has no way to pin what "today"
+means when a verify runner resolves `last7Days`/`lastCalendarMonth` against it. Every
+such scenario therefore silently drifts out of its own window on a rolling cadence
+(`last7Days`: roughly every 7 days from whenever `given` was last grounded) and starts
+failing verification for no real code reason — confirmed happening in practice against
+`export-pm-slice`'s own `last7Days` scenario, which flipped from passing to failing
+purely from calendar drift, exactly as predicted when `filters` shipped.
+
+**Why a clock pin on the query rather than on the scenario as a whole.** `asOf` is only
+ever meaningful next to a `filters`-declared preset — a scenario with no such filter has
+nothing for it to pin. Rather than a scenario-level field that's vacuous most of the
+time, it lives on `readModelQuery` itself (sibling to `queryParams`), the same object
+that already carries the one thing it's pinning a clock for.
+
+**Why a bare date rather than a full timestamp.** Every existing consumer of a
+`dateRangePreset` (`last7Days`/`lastCalendarMonth`) reasons in whole calendar days, not
+times of day — matching `given`'s own `taskDate`-shaped event data, which is already
+date-only across every scenario that uses this preset. A full ISO 8601 timestamp would
+invite a precision this schema has no present use for, and no generator has asked for.
+
+**Why this schema stops at declaring the shape.** Exactly the same split `filters`
+itself drew: this schema only says a scenario's query can carry a fixed date. Making a
+verify runner actually treat that date as "now" instead of reading the live clock is
+`dotnetcqrs`'s job (`platform/eventmodeling-codegen`) — this schema has no runtime of
+its own to patch a clock in.
+
+**Concretely:**
+- `readModelQuery` gains an optional `asOf` (`{"type": "string", "format": "date"}`),
+  sibling to `queryParams`. No new `$def` needed — a plain formatted string, like
+  `command.data`'s siblings elsewhere in this schema stay untyped where the schema has
+  no opinion, this one gets a real type because, unlike `queryParams`'s free-form
+  contents, its meaning (a calendar date) is fully specified by this schema alone.
+- No changes to `event`, `command`, `readModel`, or any other `$def`.
+- Additive; a 2.5.0 document validates unchanged against 2.6.0. Verified: `npm run
+  validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest scenario
+  adding `asOf: "2026-09-06"` alongside an existing `dateRangePreset` `queryParams` value
+  validates; a malformed variant (`asOf` not matching the `date` format, e.g.
+  `"2026-13-40"`) is rejected.

@@ -3,6 +3,22 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 2.6.0
+
+**Additive (non-breaking):**
+- `readModelQuery` (a scenario's `when`/`then` for a `stateView` slice) gains an
+  optional `asOf` (ISO 8601 date, `YYYY-MM-DD`), sibling to `queryParams`. Meaningful
+  only alongside a `filters`-declared (2.4.0) `dateRangePreset` param: when present, a
+  verify runner should resolve `last7Days`/`lastCalendarMonth` against `asOf` instead of
+  the live clock, letting a scenario pin "today" once instead of drifting out of its own
+  window on a rolling cadence. Absent, behavior is unchanged (today's live-clock
+  resolution).
+- Consuming `asOf` (stubbing the verify-time clock) is a generator's job
+  (`platform/eventmodeling-codegen`), not this schema's — same split as `filters`
+  itself.
+
+A 2.5.0 document validates unchanged against 2.6.0.
+
 ## 2.5.0
 
 **Additive (non-breaking):**
