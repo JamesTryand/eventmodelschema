@@ -685,3 +685,71 @@ whoever builds the generator side, not resolved here:
   declaring `requiredRole` on two read models, one as a single role id and one as a
   two-element array, validates; a malformed variant (`requiredRole: []`, violating
   `minItems: 1` on the array branch) is rejected with a clean `anyOf` failure.
+
+## v3.0.0: `field.piiSubject` — whose key a PII value is encrypted under
+
+Raised 2026-09-18 by `platform/eventmodeling-codegen`, which is making `pii` do
+something: encrypt each PII value under a per-subject key held by a key-management
+service, and erase a person by destroying their key (crypto-shredding). The event
+log itself is never rewritten. Since 2.0, `pii` had been a bare boolean. That was
+enough to *flag* a value, but not to say *whose* it is, and crypto-shredding cannot
+work without that.
+
+**Why no default.** The obvious candidate, the aggregate id, is wrong whenever a
+stream holds someone else's data. The worked example is the counter-example:
+`order-placed.customerEmail` lives on an Order stream but belongs to the customer.
+Encrypt it under the order's key and the customer's erasure leaves it readable. That
+failure is silent (nothing errors, the data just survives), so the schema makes the
+author say it rather than guess.
+
+**Why a sibling field name.** The subject only has to be resolved once, when the
+value is first encrypted. After that, a generator stores the subject id alongside
+the ciphertext, and reading, replaying and erasing never look it up again. So what
+the document must say is only "at write time, whose id is this?", and the most
+direct answer is a field on the same element. It is visible in the payload,
+checkable in scenarios, and needs no new concept.
+
+**Why no sentinels.** Two were considered and rejected:
+- *Aggregate id* adds nothing. Where the aggregate's own data is PII, the element
+  can carry its `idAttribute` field and `piiSubject` names it. The subject stays
+  visible in the payload rather than implied.
+- *Acting user* is a trap. It is right when a person edits their own data and
+  silently wrong when anyone else does. A support agent correcting a customer's
+  email would encrypt it under the *agent's* key, and it would survive the
+  customer's erasure. The explicit equivalent is a subject field plus
+  `command.requiredOwnership` (2.5.0) proving the actor owns it, with `bypassRoles`
+  for staff. In the staff case the field still names the data subject, not the
+  person typing. This matches how the schema already treats the actor elsewhere:
+  looked up and checked, never assumed.
+
+**Why one subject per field, not per event.** An event can legitimately carry two
+people's PII (a referral: referrer's email and referee's email). A per-event subject
+couldn't express that; a per-field one can, at the cost of a little repetition.
+
+**Why breaking.** Making `piiSubject` optional would leave `pii: true` without a
+subject meaning "encrypt under… something", the exact silent default this change
+exists to remove. The only 2.x documents using `pii` are this repository's own
+examples (and copies of them vendored into the generators), so the real cost of the
+break is small.
+
+**What this does NOT solve.**
+- Reference integrity (the named field exists on the same element and isn't itself
+  `pii`) is a generator/lint check, not structural: the same split as
+  `rowKeyField`/`amountField`, which also name fields JSON Schema can't resolve.
+- Subfields resolve against their own `subfields` array. A PII subfield whose
+  subject lives on the parent element isn't expressible. No real document needs
+  that yet.
+- Lookup by a PII value (e.g. "find the customer with this email") needs a blind
+  index. That is out of scope here, as it is in the codegen design.
+
+**Concretely:**
+- `field` gains `piiSubject` (`string`, `minLength: 1`).
+- `allOf` gains `if pii === true then required: [piiSubject]`, and a
+  `dependentSchemas` entry makes `piiSubject` require `pii: true`.
+- Examples: `order-placed` gains a `customerId` field (its scenario already emitted
+  one) and `customerEmail` declares `piiSubject: "customerId"`. Both order-fulfillment
+  examples are bumped to `3.0.0`.
+- Verified: `npm run validate`/`validate:manifest`/`roundtrip` all pass. Five
+  negative variants are each rejected: a bare `pii: true`, `piiSubject` without
+  `pii`, `piiSubject` with `pii: false`, an empty `piiSubject`, and a bare
+  `pii: true` on a nested subfield.

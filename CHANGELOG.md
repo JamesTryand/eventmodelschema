@@ -3,6 +3,33 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.0.0
+
+**Breaking:**
+- `field` gains `piiSubject`: the name of a sibling field (same `fields`/`subfields`
+  array) whose value is the id of the data subject a PII value belongs to. The value
+  is encrypted under that subject's key, so destroying the key (erasure by
+  crypto-shredding) makes it unreadable. **Required whenever `pii: true`**, and
+  `piiSubject` without `pii: true` is rejected. A 2.x document with a bare
+  `pii: true` no longer validates, hence the major bump.
+- `piiSubject` names a field only. There are deliberately no sentinels (no
+  "aggregate id", no "acting user"). A subject is always a value you can see in the
+  payload. See `docs/design-notes.md`, v3.0.0.
+- Raised by `platform/eventmodeling-codegen`, which is building crypto-shredding on
+  top of `pii`. Until now `pii` was a bare flag, so nothing said *whose* key to use,
+  and no default is safe: the aggregate id is wrong whenever a stream holds someone
+  else's data.
+
+**Migrating a 2.x document:** for every `pii: true` field, add `piiSubject` naming the
+field that holds the owner's id. If the element doesn't carry that id yet, add it as
+a field. The worked example did exactly this: `order-placed` gains `customerId`
+(which its own scenario already emitted) and `customerEmail` names it.
+
+**Not enforced here:** that `piiSubject` names a field that actually exists on the
+same element, and that the named field isn't itself `pii` (a subject id has to stay
+readable to find the key). Both are reference checks JSON Schema can't express, so
+they belong to a generator/lint, which should error rather than guess.
+
 ## 2.7.0
 
 **Additive (non-breaking):**
