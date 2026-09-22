@@ -3,6 +3,34 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.1.0
+
+**Additive (non-breaking):**
+- `readModel.filters` gains a second kind, `match`: a field that can be searched by
+  a query param. It takes a required `mode` (`exact`, `prefix`, `contains`) and
+  optionally `normalize` (`none`, `caseFold`, `email`, `phone`, `personName`;
+  default `caseFold`) and, for `prefix` only, `minPrefixLength` (at least 2;
+  default 3).
+- A document declares *how a field is matched*, never how it is stored. For a
+  `pii: true` field, generators choose the least-revealing index that satisfies the
+  mode: a keyed hash for `exact` and `prefix`, and normalized plaintext only for
+  `contains`. They delete a data subject's index entries when that subject is
+  erased. See `docs/design-notes.md`, v3.1.0.
+- `phonetic` matching is deliberately **not** in this version. It needs one
+  algorithm pinned identically across implementations, and will come in a later
+  minor version once a real document needs it.
+- Raised by `platform/eventmodeling-codegen`: a PII field is stored encrypted, and
+  the same value encrypts differently every time, so before this change it could
+  not be searched at all, and nothing in a document could say it should be.
+
+**Examples:** `pending-shipments` gains `orderId`, `customerId` and a PII
+`customerEmail`, plus an `exact` email match filter. Both order-fulfillment
+examples are bumped to `3.1.0`.
+
+**Not enforced here:** that `field` names a field of the same read model, and that
+`prefix`/`contains` target a `string` field. Both are reference checks for a
+generator/lint, like `piiSubject`.
+
 ## 3.0.0
 
 **Breaking:**

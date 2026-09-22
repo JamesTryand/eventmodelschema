@@ -753,3 +753,83 @@ break is small.
   negative variants are each rejected: a bare `pii: true`, `piiSubject` without
   `pii`, `piiSubject` with `pii: false`, an empty `piiSubject`, and a bare
   `pii: true` on a nested subfield.
+
+## v3.1.0: `match` filters — searching a field, PII included
+
+Raised 2026-09-22 by `platform/eventmodeling-codegen`, while building the read side
+of `pii`. Finding a record by email or by name is an ordinary need, and a PII field
+could not be searched at all. Its stored value is ciphertext, and the same value
+encrypts differently every time, so column equality never matches. 3.0.0 listed
+lookup by a PII value as out of scope; this version addresses it.
+
+**Why a filter kind, not a field flag.** Search is a query capability, and
+`readModel.filters` (2.4.0) is where the schema already declares those. A `match`
+filter names a param and a field, exactly like `dateRange`. The same declaration
+works for a non-PII field (plain SQL) and a PII one, so PII gets no special
+construct. The generator sees `pii: true` on the named field and changes strategy.
+
+**Why the document states semantics, not a technique.** `mode` says what the
+query must do: `exact`, `prefix` or `contains`. It never says "store a hash". This
+keeps the schema implementation-neutral, the same split as `field.derivation`
+(which says "count these events" and leaves the SQL to each generator). For a PII
+field the rule generators follow is *data minimisation*: use the least-revealing
+index that satisfies the mode.
+
+| `mode` | Non-PII field | PII field: index stores | Readable at rest? |
+|---|---|---|---|
+| `exact` | `=` on the normalized value | keyed hash (HMAC) of the normalized value | no |
+| `prefix` | `LIKE 'x%'` | keyed hash of each prefix of `minPrefixLength` or more characters | no |
+| `contains` | `LIKE '%x%'` | normalized plaintext | yes: the only such mode |
+
+**Why deleting is allowed.** The event log is immutable, which is why PII in it is
+encrypted and erased by destroying a key. A search index is a projection, and a
+projection can forget. When a data subject is erased, their index entries are
+deleted, and "no match" is then the correct answer. That is what makes a
+readable-at-rest `contains` index acceptable at all. It must also stay out of
+backups and be rebuilt from the log. A hit returns row keys only: displayed values
+still come through the normal (encrypted) read path.
+
+**Why normalization is part of the contract.** A hashed index only matches if the
+stored value and the query term normalize identically. Two implementations that
+disagree would silently miss matches. So `normalize` is declared, with defined
+meanings:
+- `caseFold`: Unicode case-fold + trim (the default);
+- `email`: case-fold + trim;
+- `phone`: formatting stripped to E.164 digits;
+- `personName`: case-fold, diacritics stripped, whitespace collapsed;
+- `none`: exact bytes.
+
+**Known leakage, accepted.**
+- Hashed prefixes reveal roughly how long a value is.
+- Every hashed mode reveals which rows share a value, which is inherent to equality
+  search.
+- The hash key is shared across subjects (it has to be, to search across them).
+  Erasure therefore works by deleting index entries, not by destroying that key.
+
+**What this deliberately leaves out.**
+- *Phonetic matching* ("Smith" finds "Smyth"). It would be a keyed hash of a
+  phonetic code, so nothing readable at rest. But the algorithm has to be pinned
+  identically across implementations, and no real document needs it yet. It is
+  planned for a later minor version.
+- *The data subject's lifecycle.* Erasure is a runtime event (a subject is erased,
+  their key destroyed, their index entries deleted). This version does not model it
+  in the schema. That is a working assumption rather than a settled position: if
+  documents start needing to say something about erasure itself, it gets revisited.
+- *Reference checks.* That `field` names a field of the same read model, and that
+  `prefix`/`contains` target a `string` field, are generator/lint checks. JSON
+  Schema can't resolve them, the same as `piiSubject`.
+
+**Concretely:**
+- `filterKind` gains `match`. New `matchMode` (`exact`, `prefix`, `contains`) and
+  `matchNormalize` (`none`, `caseFold`, `email`, `phone`, `personName`).
+- `readModelFilter.allOf` gains a `match` branch: `mode` is required, and
+  `normalize` and `minPrefixLength` (integer, at least 2) are optional.
+  `minPrefixLength` is only allowed with `mode: "prefix"`. The existing
+  `unevaluatedProperties: false` keeps each kind's properties off the other kind.
+- Examples: `pending-shipments` gains `orderId`, `customerId`, a PII
+  `customerEmail` (`piiSubject: "customerId"`) and an `exact`/`email` match filter.
+- Verified: `npm run validate`/`validate:manifest`/`roundtrip` all pass. Of ten
+  filter variants, the three valid ones are accepted, and seven are each rejected: a
+  match without `mode`; a match with `presets`; a dateRange with `mode`;
+  `minPrefixLength` on `exact`; `minPrefixLength: 1`; `mode: "phonetic"`; and an
+  unknown `normalize`.

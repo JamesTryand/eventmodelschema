@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.0.0` — see `CHANGELOG.md` for what changed since
+`eventModelingSchemaVersion` `3.1.0` — see `CHANGELOG.md` for what changed since
 1.0.0 (typed fields, `translation` removed, `aggregate` tagging, a multi-file
 composition layer, the `sliceStatus` value `accepted`, derived read-model fields /
 stream-ending events / scoped queries, a grouped-rollup `groupBy` derivation,
@@ -36,7 +36,7 @@ single-field date-range query filtering via `readModel.filters`, and four
 `command` authorization declarations — `requiredRole`, `fieldGatedRole`,
 `requiredOwnership`, `scope`, plus `readModel.requiredRole`, and — the one breaking
 change, 3.0.0 — a required `field.piiSubject` naming whose key a PII value is
-encrypted under). A companion lint tool remains future work. Structural validation only — see
+encrypted under — and 3.1.0's `match` filters for searchable fields, PII included). A companion lint tool remains future work. Structural validation only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a
 separate lint/review layer.
 
