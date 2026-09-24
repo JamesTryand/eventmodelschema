@@ -799,6 +799,8 @@ meanings:
 - `personName`: case-fold, diacritics stripped, whitespace collapsed;
 - `none`: exact bytes.
 
+(These loose definitions are pinned exactly, with test vectors, in v3.1.1 below.)
+
 **Known leakage, accepted.**
 - Hashed prefixes reveal roughly how long a value is.
 - Every hashed mode reveals which rows share a value, which is inherent to equality
@@ -833,3 +835,90 @@ meanings:
   match without `mode`; a match with `presets`; a dateRange with `mode`;
   `minPrefixLength` on `exact`; `minPrefixLength: 1`; `mode: "phonetic"`; and an
   unknown `normalize`.
+
+## v3.1.1: `match` normalizers pinned exactly
+
+A clarification of v3.1.0. **No schema shape change.** The meaning of each `normalize`
+value is now defined precisely enough that two implementations produce the same bytes.
+
+**Why this was needed.** v3.1.0 defined the normalizers loosely ("Unicode case-fold",
+"E.164 digits"), and two gaps showed up in the first implementation:
+- *Case folding differs by runtime.* .NET has only a per-character lowercase mapping,
+  while Go's `cases.Fold` does full case folding (`ß` becomes `ss`). Both are
+  "Unicode case-fold" in loose terms, and they disagree.
+- *E.164 needs a country.* Turning `020 7946 0958` into `+442079460958` means knowing the
+  number is British. A normalizer that sees one value has no way to know that.
+
+For `contains` on a PII field and for non-PII fields this barely matters, because one
+implementation both writes and queries an index. For a **hashed** index (`exact` and
+`prefix` on a PII field) it matters a lot. A keyed hash only matches when every writer
+and every reader normalize byte-identically, and a mismatch shows up as silently missing
+results, not as an error. So the rules below are the contract, and each implementation
+must reproduce them, not its platform's nearest equivalent.
+
+**The pinned rules.** Code points are written `U+XXXX`.
+- `none`: the value unchanged.
+- `caseFold` (the default) and `email` (identical):
+  1. Unicode normalization form **NFKC**.
+  2. **Lowercase each code point with the invariant (culture-neutral) simple mapping.**
+     This is Unicode's one-to-one lowercase mapping, never a one-to-many one, so `ß`
+     stays `ß`, and final sigma is not special (`Σ` always becomes `σ`). One
+     exception, following .NET's invariant casing: `U+0130` (capital I with dot) is left
+     unchanged rather than becoming `i`. Supplementary-plane letters are lowercased too.
+  3. **Trim** leading and trailing Unicode `White_Space`. NFKC has already turned `U+00A0`
+     and `U+3000` into ordinary spaces, so they are trimmed.
+- `personName`: `caseFold` first, then NFD, then remove every code point of general
+  category `Mn` (non-spacing marks), then collapse each run of `White_Space` to a single
+  `U+0020` and drop leading and trailing whitespace, then NFC. The final NFC puts scripts
+  that decompose without marks (Hangul, for example) back into their usual form.
+  Punctuation such as `'` and `-` is kept.
+- `phone`: trim `White_Space`; if the result starts with an ASCII `+` (`U+002B`), output `+`;
+  then append every ASCII digit `0`-`9` in order, and drop everything else. There is **no
+  NFKC** step, so fullwidth or other-script digits and a fullwidth plus are dropped, not
+  converted. No country is inferred: `020 7946 0958`, `+44 20 7946 0958` and
+  `+44 (0)20 7946 0958` normalize to three different values and do not match each other.
+
+**Test vectors.** Every implementation must reproduce these. They were produced by
+running the reference implementation (dotnetcqrs's `MatchNormalizer`), not written by
+hand. Adjacent code-point tokens in a cell are concatenated with no space between them;
+spaces inside a backticked run are real.
+
+| `normalize` | Input | Output |
+|---|---|---|
+| `caseFold` | `  Ada@Example.COM  ` | `ada@example.com` |
+| `caseFold` | `Stra` `U+00DF` `e` | `stra` `U+00DF` `e` |
+| `caseFold` | `U+FF21` `U+FF22` `c` (fullwidth `AB`) | `abc` |
+| `caseFold` | `U+0130` `stanbul` | `U+0130` `stanbul` (unchanged) |
+| `caseFold` | `I` | `i` |
+| `caseFold` | `U+1E9E` (capital sharp s) | `U+00DF` |
+| `caseFold` | `U+03A3` `U+0391` `U+03A3` | `U+03C3` `U+03B1` `U+03C3` |
+| `caseFold` | `U+10400` | `U+10428` |
+| `caseFold` | `cafe` `U+0301` (combining acute) | `caf` `U+00E9` |
+| `caseFold` | `U+00A0` `x` `U+3000` | `x` |
+| `email` | `Ada.Lovelace@Example.org ` | `ada.lovelace@example.org` |
+| `personName` | `  Zo` `U+00EB` `   M` `U+00FC` `ller ` | `zoe muller` |
+| `personName` | `Jos` `U+00E9` `U+0009` `Garc` `U+00ED` `a` | `jose garcia` |
+| `personName` | `U+D55C` `U+AE00` (Hangul) | `U+D55C` `U+AE00` (unchanged) |
+| `personName` | `O'Brien-Smith` | `o'brien-smith` |
+| `personName` | `U+1E9E` `tra` `U+00DF` `e` | `U+00DF` `tra` `U+00DF` `e` |
+| `phone` | ` +44 (0)20 7946-0958 ` | `+4402079460958` |
+| `phone` | `020 7946 0958` | `02079460958` |
+| `phone` | `00 44 20 7946 0958` | `00442079460958` |
+| `phone` | `1+2+3` | `123` |
+| `phone` | `U+FF11` `U+FF12` `3` (fullwidth `12`) | `3` |
+| `phone` | `U+0661` `U+0662` `3` (Arabic-Indic `12`) | `3` |
+| `phone` | `U+FF0B` `44 20` (fullwidth plus) | `4420` |
+| `none` | `  Ada ` | `  Ada ` (unchanged) |
+
+**Changing a rule is breaking for data, not for documents.** A document that validates
+under 3.1.0 validates under 3.1.1 unchanged. But if a later version ever changes one of
+these rules (full case folding, say, or a default country for `phone`), every hashed index
+built with the old rule has to be rebuilt, so it would come with an explicit note and a
+new version, never as a silent fix.
+
+**Concretely:**
+- `docs/design-notes.md` gains this section; v3.1.0's loose definitions stand as history,
+  with a pointer here.
+- `eventModelingSchemaVersion`'s `default` and both order-fulfillment examples are bumped
+  to `3.1.1`. Nothing else in the schema changes.
+- Verified: `npm run validate`/`validate:manifest`/`roundtrip` all pass.

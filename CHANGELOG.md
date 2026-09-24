@@ -3,6 +3,23 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.1.1
+
+**Clarification (no schema shape change):**
+- The `match` normalizers are now defined exactly, with test vectors, in
+  `docs/design-notes.md` (v3.1.1). A hashed index only matches when every
+  implementation normalizes byte-identically, and v3.1.0's definitions were loose
+  enough for two implementations to disagree silently.
+- `caseFold`/`email`: NFKC, then invariant one-to-one lowercase per code point (not
+  full case folding, so `ß` stays `ß`; `U+0130` is left unchanged), then trim.
+- `personName`: `caseFold`, then NFD, drop non-spacing marks, collapse whitespace,
+  then NFC.
+- `phone`: keep a leading ASCII `+`, keep ASCII digits, drop everything else. No NFKC
+  and no country inference, so a local and an international form of one number don't
+  match. v3.1.0's "E.164 digits" wasn't implementable without a country.
+- Documents need no change: anything valid under 3.1.0 is valid under 3.1.1. The
+  `eventModelingSchemaVersion` default and both order-fulfillment examples are bumped.
+
 ## 3.1.0
 
 **Additive (non-breaking):**
