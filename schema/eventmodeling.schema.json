@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.1.1"
+      "default": "3.2.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -31,7 +31,8 @@
       "type": "array",
       "items": { "$ref": "#/$defs/slice" }
     },
-    "hotspots": { "$ref": "#/$defs/hotspotRegistry" }
+    "hotspots": { "$ref": "#/$defs/hotspotRegistry" },
+    "dataSubjects": { "$ref": "#/$defs/dataSubjects" }
   },
   "additionalProperties": false,
 
@@ -287,16 +288,18 @@
           "items": { "$ref": "#/$defs/id" },
           "minItems": 1
         },
-        "via": {
-          "type": "object",
-          "required": ["readModelId", "keyField", "ownerField"],
-          "properties": {
-            "readModelId": { "$ref": "#/$defs/id" },
-            "keyField": { "type": "string", "minLength": 1 },
-            "ownerField": { "type": "string", "minLength": 1 }
-          },
-          "additionalProperties": false
-        }
+        "via": { "$ref": "#/$defs/ownershipVia" }
+      },
+      "additionalProperties": false
+    },
+
+    "ownershipVia": {
+      "type": "object",
+      "required": ["readModelId", "keyField", "ownerField"],
+      "properties": {
+        "readModelId": { "$ref": "#/$defs/id" },
+        "keyField": { "type": "string", "minLength": 1 },
+        "ownerField": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
@@ -430,8 +433,52 @@
           "type": "array",
           "items": { "$ref": "#/$defs/readModelFilter" }
         },
-        "requiredRole": { "$ref": "#/$defs/roleRequirement" }
+        "requiredRole": { "$ref": "#/$defs/roleRequirement" },
+        "selfAccess": { "$ref": "#/$defs/readModelSelfAccess" }
       },
+      "additionalProperties": false
+    },
+
+    "readModelSelfAccess": {
+      "type": "object",
+      "required": ["subjectField"],
+      "properties": {
+        "subjectField": { "type": "string", "minLength": 1 },
+        "via": { "$ref": "#/$defs/ownershipVia" }
+      },
+      "additionalProperties": false
+    },
+
+    "dataSubjects": {
+      "type": "object",
+      "properties": {
+        "erasure": { "$ref": "#/$defs/erasureAuthorization" }
+      },
+      "additionalProperties": false
+    },
+
+    "erasureAuthorization": {
+      "type": "object",
+      "properties": {
+        "self": { "type": "boolean", "default": false },
+        "roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "via": { "$ref": "#/$defs/ownershipVia" }
+      },
+      "anyOf": [
+        { "type": "object", "required": ["self"], "properties": { "self": { "const": true } } },
+        { "type": "object", "required": ["roles"] }
+      ],
+      "allOf": [
+        {
+          "if": { "type": "object", "required": ["via"] },
+          "then": { "type": "object", "required": ["self"], "properties": { "self": { "const": true } } }
+        }
+      ],
       "additionalProperties": false
     },
 

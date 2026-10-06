@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.1.1",
+  "eventModelingSchemaVersion": "3.2.0",
   "id": "order-fulfillment",
   "name": "Order Fulfillment",
   "description": "Worked example exercising every notation in the schema: all 3 slice patterns, all 3 scenario kinds, a hotspot, a chapter, and an actor lane. The shipping-partner notification slice also demonstrates automation without a read model (a boundary-crossing Bridge/Reactor: event straight to command, no persisted state needed).",
@@ -9,6 +9,9 @@
     { "id": "warehouse", "name": "Warehouse", "kind": "system" },
     { "id": "shipping-partner", "name": "Shipping Partner", "kind": "system", "description": "External carrier integration boundary." }
   ],
+  "dataSubjects": {
+    "erasure": { "self": true, "roles": ["support"] }
+  },
   "chapters": {
     "order-lifecycle": { "name": "Order Lifecycle", "description": "From placement through shipment notification." }
   },
@@ -61,8 +64,11 @@
       "builtFromEventIds": ["order-placed", "order-shipped"],
       "fields": [
         { "name": "orderId", "type": "uuid", "idAttribute": true },
+        { "name": "customerId", "type": "uuid" },
         { "name": "status", "type": "string" }
-      ]
+      ],
+      "requiredRole": "support",
+      "selfAccess": { "subjectField": "customerId" }
     },
     "pending-shipments": {
       "name": "Pending Shipments",
@@ -125,9 +131,9 @@
           "id": "view-order-summary-after-placement",
           "name": "Order summary reflects a placed order before shipment",
           "kind": "stateView",
-          "given": [{ "eventId": "order-placed", "data": { "orderId": "order-1" } }],
+          "given": [{ "eventId": "order-placed", "data": { "orderId": "order-1", "customerId": "customer-1" } }],
           "when": { "readModelId": "order-summary", "queryParams": { "orderId": "order-1" } },
-          "then": { "result": { "orderId": "order-1", "status": "placed" } }
+          "then": { "result": { "orderId": "order-1", "customerId": "customer-1", "status": "placed" } }
         }
       ]
     },

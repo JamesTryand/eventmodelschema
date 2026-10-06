@@ -922,3 +922,99 @@ new version, never as a silent fix.
 - `eventModelingSchemaVersion`'s `default` and both order-fulfillment examples are bumped
   to `3.1.1`. Nothing else in the schema changes.
 - Verified: `npm run validate`/`validate:manifest`/`roundtrip` all pass.
+
+## v3.2.0: `readModel.selfAccess` and `dataSubjects.erasure` — a person's own data
+
+Raised 2026-10-06 by `platform/eventmodeling-codegen` while carrying personal-data
+support across to its second runtime. Since 2.7.0 a read model could say "this role
+sees every row", and nothing else. A signed-in person reading *their own* data (a
+profile page showing their email; GDPR Art. 15 access, Art. 20 portability) could not
+be declared, so each runtime would need its own hook to work out whose rows a caller
+may see. Erasure had the same gap: the runtime's built-in `EraseSubject` command had no
+way to say "the subject themselves, or a support role", which is what "delete my
+account" needs.
+
+**What `selfAccess` means.** Given `{ "subjectField": "customerId" }`, a caller who
+holds the read model's `requiredRole` sees every row, exactly as in 2.7.0. Any other
+signed-in caller sees only the rows whose `customerId` equals their own subject id.
+Unauthenticated callers are rejected, as before. Three consequences follow:
+- With `selfAccess` and no `requiredRole`, *every* caller is limited to their own rows.
+  Nobody reads the whole table through the generated route.
+- `selfAccess` is an extra condition on the query, so it combines with `scopes` and
+  `filters` by narrowing them. It never makes a row visible that they would hide.
+- A caller with no subject id (see `via` below) gets an empty result, not an error.
+  An error would tell a caller something about how their identity is mapped, and an
+  empty list is what "you have no orders" looks like anyway.
+
+**Why any read model, not only ones holding PII.** Every PII field already names its
+owner through `piiSubject`, so a PII-only rule could almost infer itself. But "my
+orders" needs the same rule as "my profile", and a rule that only switched on when a
+`pii` field happened to be present would feel arbitrary to whoever writes the
+document. So `subjectField` is any top-level field of the read model. In practice it
+is usually the field that the read model's PII fields name as their `piiSubject`.
+
+**Why `via`, and why `requiredOwnership`'s vocabulary.** The obvious design takes the
+caller's id as their subject id, and that is what `selfAccess` does when `via` is
+absent. But a subject id need not be the login id. Erasure is final per subject: once
+a subject's key is destroyed, that subject is gone for good. If the person later comes
+back and the application keeps their account across that, the account now has a new
+subject id, different from the login id. `via` covers this with the same lookup
+`command.requiredOwnership` has used since 2.5.0: the rows of `readModelId` whose
+`ownerField` equals the caller's id, and the `keyField` value of each as a subject id.
+If several rows match, the caller sees rows for any of those subject ids. Reusing the
+same three names, now through a shared `$def` (`ownershipVia`), means a generator
+resolves both with one evaluator.
+
+**Why erasure is a declaration, not a modelled lifecycle.** On 2026-09-22 this schema
+decided that the data-subject lifecycle (the `DataSubject` aggregate, `EraseSubject`,
+`SubjectErased`) belongs to the runtime, not to each document, and that stands. What
+a document legitimately owns is *who may erase*, since that is a business rule that
+varies by application. So `dataSubjects.erasure` declares exactly that and nothing
+more:
+- `self: true` lets a caller erase their own subject id, resolved as for `selfAccess`
+  (by their id, or through `via`).
+- `roles` lists roles that may erase any subject.
+- At least one of the two is required, because an empty declaration would read as
+  "nobody may erase", which no application wants to state silently. `via` is only
+  accepted alongside `self: true`, since it has no other use.
+- Without the declaration, nothing changes: authorizing `EraseSubject` stays the
+  host's job, as it was before 3.2.0. Generators must not read a missing declaration
+  as "anyone may erase".
+- Erasure cannot be undone, so asking for re-authentication or confirmation before
+  erasing is always the host's responsibility, never the schema's.
+
+**Why a top-level `dataSubjects` object.** `EraseSubject` is not a command in any
+document, so there is no command to attach a rule to, and erasure covers every read
+model and event at once. A rule for the whole document belongs at the top level.
+Wrapping it in `dataSubjects` rather than adding a bare `erasure` key leaves room for
+other per-subject declarations later (an export format for portability, say) without
+another top-level key each time. A split document carries it inline in its manifest,
+next to `swimlanes`, because it is one small object, not a registry.
+
+**Why `erasure.via` repeats `selfAccess.via` instead of one shared mapping.** A
+document that needs `via` will usually give the same lookup in each place. A single
+document-wide "how to find a caller's subject id" mapping was the alternative. It was
+not chosen because the decision taken for this release puts `via` on each declaration,
+as `requiredOwnership` does, which keeps each rule readable on its own. If repetition
+becomes a real problem, a shared mapping can be added later without breaking anything.
+
+**Concretely:**
+- `readModel` gains `selfAccess` (`$def` `readModelSelfAccess`): `subjectField`
+  required, `via` optional.
+- The document gains a top-level `dataSubjects` (`$def` `dataSubjects`) with one
+  property, `erasure` (`$def` `erasureAuthorization`).
+- `command.requiredOwnership.via` now references the new `$def` `ownershipVia`. Its
+  shape is unchanged.
+- `manifest.schema.json` accepts `dataSubjects`, and `split.js`/`join.js` carry it.
+- Additive: a 3.1.1 document validates unchanged against 3.2.0. Verified: `npm run
+  validate`/`validate:manifest`/`roundtrip` pass with the updated examples. Six valid
+  variants are accepted: `selfAccess` with `via`, `selfAccess` without `requiredRole`,
+  erasure with `self` only, with `roles` only, with `self` plus `via`, and an empty
+  `dataSubjects`. Ten invalid ones are rejected: `selfAccess` missing or with an empty
+  `subjectField`, a partial `via`, an unknown `selfAccess` property, an empty
+  `erasure`, `self: false` alone, empty or duplicate `roles`, `via` without
+  `self: true`, and an unknown `dataSubjects` property. `requiredOwnership` behaves as
+  before the `$def` move (a full `via` passes, a partial one fails).
+- Not enforced here: that `subjectField` names a top-level field of the same read
+  model, and that `via.readModelId` exists with `keyField` and `ownerField` among its
+  fields. Those are reference checks for a generator or lint, like `piiSubject`.

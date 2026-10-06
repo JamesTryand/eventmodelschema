@@ -18,6 +18,10 @@
       "items": { "$ref": "#/$defs/swimlane" },
       "minItems": 1
     },
+    "dataSubjects": {
+      "type": "object",
+      "description": "Carried inline, like swimlanes: a small document-wide declaration, not a registry. Its full shape is checked against eventmodeling.schema.json once joined."
+    },
     "registries": {
       "type": "object",
       "properties": {

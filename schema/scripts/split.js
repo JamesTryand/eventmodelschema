@@ -36,7 +36,8 @@ function main() {
     id: doc.id,
     name: doc.name,
     ...(doc.description !== undefined ? { description: doc.description } : {}),
-    swimlanes: doc.swimlanes
+    swimlanes: doc.swimlanes,
+    ...(doc.dataSubjects !== undefined ? { dataSubjects: doc.dataSubjects } : {})
   };
 
   const registryPaths = {};

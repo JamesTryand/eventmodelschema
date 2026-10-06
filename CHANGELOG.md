@@ -3,6 +3,51 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.2.0
+
+**Additive (non-breaking):**
+- `readModel` gains `selfAccess`: `{ "subjectField", "via"? }`. A caller holding the
+  read model's `requiredRole` sees every row, as before. Any other signed-in caller
+  sees only the rows whose `subjectField` equals their own subject id. Any read model
+  can declare it, not only ones holding PII ("my orders" needs it as much as "my
+  profile").
+  - Without `via`, the caller's id (as the host authenticates it) is their subject id.
+  - With `via` (`readModelId`, `keyField`, `ownerField`, the same shape as
+    `command.requiredOwnership.via`), the caller's subject ids are the `keyField`
+    values of the rows in `readModelId` whose `ownerField` equals the caller's id.
+    It exists because a subject id need not be the login id: erasure is final per
+    subject, so a person who comes back is a new subject.
+  - With `selfAccess` and no `requiredRole`, every caller is limited to their own rows.
+  - It narrows `scopes` and `filters`, never widens them.
+- New top-level `dataSubjects`, holding `erasure`: `{ "self"?, "roles"?, "via"? }`,
+  which says who may call the runtime's built-in `EraseSubject`. `self: true` lets a
+  subject erase themselves (resolved as above, `via` included); `roles` lists roles
+  that may erase anyone. At least one of `self: true` or `roles` is required, and
+  `via` is only accepted with `self: true`. Without the declaration nothing changes:
+  authorizing `EraseSubject` stays the host's job. Re-authentication and confirmation
+  are always the host's. This is a declaration, not a modelled data-subject
+  lifecycle (that stays a runtime concern).
+- Split documents carry `dataSubjects` inline in the manifest, like `swimlanes`.
+  `manifest.schema.json`, `split.js` and `join.js` are updated to match.
+- Raised by `platform/eventmodeling-codegen`: a person reading or erasing their own
+  data (GDPR access, portability and erasure) had no way to be declared. The
+  command side has had `requiredOwnership` since 2.5.0; the read side had only
+  "this role sees every row".
+
+**Internal, no document-visible change:** `command.requiredOwnership.via`'s shape
+moves to a shared `$def`, `ownershipVia`, now also used by `selfAccess.via` and
+`erasure.via`.
+
+**Examples:** `order-summary` gains `customerId`, `requiredRole: "support"` and
+`selfAccess` on `customerId`, and the document declares
+`dataSubjects.erasure` with `self: true` and `roles: ["support"]`. Both
+order-fulfillment examples are bumped to `3.2.0`.
+
+**Not enforced here:** that `subjectField` names a top-level field of the same read
+model, and that `via.readModelId` names an existing read model with `keyField` and
+`ownerField` among its fields. These are reference checks for a generator or lint,
+like `piiSubject`.
+
 ## 3.1.1
 
 **Clarification (no schema shape change):**

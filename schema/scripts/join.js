@@ -29,7 +29,8 @@ function main() {
     id: manifest.id,
     name: manifest.name,
     ...(manifest.description !== undefined ? { description: manifest.description } : {}),
-    swimlanes: manifest.swimlanes
+    swimlanes: manifest.swimlanes,
+    ...(manifest.dataSubjects !== undefined ? { dataSubjects: manifest.dataSubjects } : {})
   };
 
   for (const [key, relPath] of Object.entries(manifest.registries || {})) {
