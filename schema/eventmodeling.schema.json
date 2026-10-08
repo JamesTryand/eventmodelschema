@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.6.0"
+      "default": "3.7.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -33,7 +33,8 @@
       "items": { "$ref": "#/$defs/slice" }
     },
     "hotspots": { "$ref": "#/$defs/hotspotRegistry" },
-    "dataSubjects": { "$ref": "#/$defs/dataSubjects" }
+    "dataSubjects": { "$ref": "#/$defs/dataSubjects" },
+    "partitioning": { "$ref": "#/$defs/partitioning" }
   },
   "additionalProperties": false,
 
@@ -228,6 +229,7 @@
         "swimlaneId": { "$ref": "#/$defs/id" },
         "aggregate": { "type": "string", "minLength": 1 },
         "endsStream": { "type": "boolean", "default": false },
+        "partitioned": { "type": "boolean", "default": true },
         "fields": {
           "type": "array",
           "items": { "$ref": "#/$defs/field" }
@@ -258,7 +260,8 @@
         "requiredRole": { "$ref": "#/$defs/roleRequirement" },
         "fieldGatedRole": { "$ref": "#/$defs/commandFieldGatedRole" },
         "requiredOwnership": { "$ref": "#/$defs/commandOwnership" },
-        "scope": { "$ref": "#/$defs/commandScope" }
+        "scope": { "$ref": "#/$defs/commandScope" },
+        "partitioned": { "type": "boolean", "default": true }
       },
       "additionalProperties": false
     },
@@ -435,7 +438,8 @@
           "items": { "$ref": "#/$defs/readModelFilter" }
         },
         "requiredRole": { "$ref": "#/$defs/roleRequirement" },
-        "selfAccess": { "$ref": "#/$defs/readModelSelfAccess" }
+        "selfAccess": { "$ref": "#/$defs/readModelSelfAccess" },
+        "partitioned": { "type": "boolean", "default": true }
       },
       "additionalProperties": false
     },
@@ -446,6 +450,22 @@
       "properties": {
         "subjectField": { "type": "string", "minLength": 1 },
         "via": { "$ref": "#/$defs/ownershipVia" }
+      },
+      "additionalProperties": false
+    },
+
+    "partitioning": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
+        "description": { "type": "string" },
+        "crossPartitionRoles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
       },
       "additionalProperties": false
     },
@@ -932,6 +952,7 @@
               "delay": { "$ref": "#/$defs/automationDelay" },
               "schedule": { "$ref": "#/$defs/automationSchedule" },
               "effect": { "$ref": "#/$defs/automationEffect" },
+              "partitionFrom": { "type": "string", "minLength": 1 },
               "readModelId": { "$ref": "#/$defs/id" },
               "commandId": { "$ref": "#/$defs/id" },
               "resultEventIds": {

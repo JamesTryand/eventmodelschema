@@ -1284,3 +1284,76 @@ implementers rather than enforced:
   automation and one with a `delay`. Rejected: a missing `gaveUp` or `swimlaneId`,
   `gaveUp` without or with empty `resultEventIds`, a `timeout` or `retry` in the
   document, and `effect` on a `stateChange` slice.
+
+## v3.7.0: `partitioning` — every stream and row belongs to a partition by default
+
+Raised 2026-09-08 by `project/container-paas` and `project/landing-pages`. Decision 0006
+puts tenancy in the data model from day one, because adding a tenant key to an event
+store after events exist means migrating them. The schema had authorization
+(`requiredRole`, `requiredOwnership`, `scope`, `scopes`, `selfAccess`), but every one of
+those is opt-in per element and unscoped by default. With tenancy built from them,
+forgetting one declaration silently lets a tenant read another tenant's data.
+
+**Partitioning is ambient; opting out is explicit.** When a document declares
+`partitioning`, every stream and every read-model row belongs to one partition. An
+element that genuinely spans partitions says so with `partitioned: false`. The default
+is the safe one, and the unsafe choice has to be written down where a reviewer can see
+it.
+
+**Why "partitioning" and not "tenancy".** The review's call: tenancy is one use of it.
+The same declaration fits shops on a marketplace, organisations, or workspaces. The key
+name (`tenantId`, `shopId`) is what tells a reader which kind it is.
+
+**Why the key lives in metadata, not in `fields`.** The alternative was a declared
+field on every event, command and read model, with a lint to catch any element that
+lacked it. That brings back the problem this release removes: an element that forgets
+the field is unscoped until something notices. In metadata, the key is attached by the
+runtime to everything in a partitioned document, so there is nothing to forget.
+`key` only names it, for the generators and the host (a column name, a claim name). A
+field with the same name as the key would be confusing, and a lint should reject it.
+
+**Which partition a command runs in.** It inherits the partition of whatever sent it:
+- a caller: the host resolves the caller's partition, as it already resolves their
+  actor id;
+- an ingress: the host's adapter resolves it, for example from the URL the sender was
+  given or from the payload;
+- an automation: the event that triggered it, or the event that started its timer
+  (timers belong to a partition too);
+- a schedule with a to-do read model: the row being worked on;
+- an effect: the trigger, so its success and gave-up reports go back to the same
+  partition.
+
+Events take the partition of the command that produced them. The one gap is a
+partitioned command started from something that has no partition, such as a global
+event. There, `partitionFrom` names the trigger event's field that holds the partition.
+A schedule with no read model has neither a trigger nor a row, so it can only send
+global commands; a lint should flag anything else.
+
+**Reads.** A partitioned read model only ever returns rows from the caller's partition.
+`crossPartitionRoles` lists roles that may read every partition, such as the operator,
+who decision 0006 treats as tenant zero with an estate-wide view. This check comes
+first. `requiredRole`, `selfAccess`, `scopes` and `filters` then apply as before, so a
+cross-partition role still needs the read model's `requiredRole`.
+A read model with `partitioned: false` built from partitioned events merges every
+partition into one view. That is sometimes the point (an operator's estate dashboard),
+and because it needs `partitioned: false`, it is always deliberate.
+
+**Not the schema's.** How partitions are stored (a key column in shared tables, a schema
+per tenant, a database per tenant) is the runtime's and host's choice, and can differ
+between deployments of the same document. The document states only who belongs to
+which partition.
+
+**Concretely:**
+- New top-level `partitioning` (`$def` `partitioning`): `key` required (a letter, then
+  letters, digits or `_`), `description` and `crossPartitionRoles` optional.
+- `event`, `command` and `readModel` accept `partitioned` (boolean, default `true`).
+- Automation slices accept `partitionFrom`.
+- `manifest.schema.json`, `split.js` and `join.js` carry `partitioning` inline.
+- Additive: a 3.6.0 document validates unchanged against 3.7.0, and without
+  `partitioning` it means the same. Verified: `npm run validate`/`validate:manifest`/
+  `roundtrip` pass with the updated examples. Accepted: `partitioned: false` on an
+  event, a command and a read model; `partitionFrom` on an automation; `partitioning`
+  with only a `key`; a document without `partitioning`. Rejected: a missing `key`, a
+  hyphenated `key`, an empty `crossPartitionRoles`, an unknown `partitioning`
+  property (such as a storage choice), `partitioned: "global"`, `partitioned` on a
+  screen, and `partitionFrom` on a `stateChange` slice.

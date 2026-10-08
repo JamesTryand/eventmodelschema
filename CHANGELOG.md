@@ -3,6 +3,42 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.7.0
+
+**Additive (non-breaking):**
+- New top-level `partitioning`: `{ "key", "description"?, "crossPartitionRoles"? }`.
+  When it is present, every stream and every read-model row belongs to one
+  partition, unless the element opts out. Tenancy is the usual case: each tenant is
+  a partition.
+  - `key` names the partition key (for example `tenantId`). It lives in each event's
+    metadata, not in `fields`, so no element can forget to carry it.
+  - A command runs in the partition of whatever sent it: the caller (resolved by the
+    host, like the actor id), an ingress (resolved by the host's adapter), the event
+    that triggered an automation or started a timer, or the read-model row a schedule
+    is working through.
+  - A partitioned read model returns only the caller's partition. Roles in
+    `crossPartitionRoles` (an operator, say) see every partition. `requiredRole`,
+    `selfAccess`, `scopes` and `filters` then narrow the result as before.
+- Events, commands and read models accept `partitioned: false` to opt out, for things
+  that genuinely span partitions (the tenants themselves, shared infrastructure).
+- Automation slices accept `partitionFrom`: a field of the trigger event naming the
+  partition, for when a partitioned command is started by something that has no
+  partition (a global event).
+- Without `partitioning`, nothing changes. Split documents carry `partitioning` inline
+  in the manifest; `manifest.schema.json`, `split.js` and `join.js` are updated.
+- Raised by `project/container-paas` and `project/landing-pages` (decision 0006:
+  tenancy in the data model from day one, because adding it after events exist is a
+  migration).
+
+**Examples:** `order-fulfillment` is partitioned by `shopId`, with `operator` able to
+read across shops. Both order-fulfillment examples are bumped to `3.7.0`.
+
+**Not enforced here:** that a command and its events agree on `partitioned`, that
+`partitionFrom` names a field of the trigger event, that a partitioned command is never
+started from a context with no partition and no `partitionFrom`, and that no field
+shares the key's name. Checks for a lint. `partitioned` and `partitionFrom` are
+accepted, and mean nothing, in a document without `partitioning`.
+
 ## 3.6.0
 
 **Additive (non-breaking):**

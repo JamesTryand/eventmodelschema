@@ -1,5 +1,5 @@
 {
-  "eventModelingSchemaVersion": "3.6.0",
+  "eventModelingSchemaVersion": "3.7.0",
   "id": "order-fulfillment",
   "name": "Order Fulfillment",
   "description": "Worked example exercising every notation in the schema: all 3 slice patterns, all 3 scenario kinds, a hotspot, a chapter, and an actor lane. The shipping-partner notification slice also demonstrates automation without a read model (a boundary-crossing Bridge/Reactor: event straight to command, no persisted state needed).",
@@ -28,6 +28,13 @@
         "support"
       ]
     }
+  },
+  "partitioning": {
+    "key": "shopId",
+    "description": "Each shop on the platform is a tenant: its orders, read models and timers are its own.",
+    "crossPartitionRoles": [
+      "operator"
+    ]
   },
   "registries": {
     "chapters": "registries/chapters.json",

@@ -38,7 +38,8 @@ function main() {
     name: doc.name,
     ...(doc.description !== undefined ? { description: doc.description } : {}),
     swimlanes: doc.swimlanes,
-    ...(doc.dataSubjects !== undefined ? { dataSubjects: doc.dataSubjects } : {})
+    ...(doc.dataSubjects !== undefined ? { dataSubjects: doc.dataSubjects } : {}),
+    ...(doc.partitioning !== undefined ? { partitioning: doc.partitioning } : {})
   };
 
   const registryPaths = {};

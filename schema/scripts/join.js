@@ -30,7 +30,8 @@ function main() {
     name: manifest.name,
     ...(manifest.description !== undefined ? { description: manifest.description } : {}),
     swimlanes: manifest.swimlanes,
-    ...(manifest.dataSubjects !== undefined ? { dataSubjects: manifest.dataSubjects } : {})
+    ...(manifest.dataSubjects !== undefined ? { dataSubjects: manifest.dataSubjects } : {}),
+    ...(manifest.partitioning !== undefined ? { partitioning: manifest.partitioning } : {})
   };
 
   for (const [key, relPath] of Object.entries(manifest.registries || {})) {
