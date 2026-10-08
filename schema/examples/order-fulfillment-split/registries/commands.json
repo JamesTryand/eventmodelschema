@@ -26,5 +26,25 @@
     "name": "Notify Shipping Partner",
     "description": "Informs the external shipping partner that an order has shipped.",
     "reason": "The shipping partner needs to know about the shipment to process it."
+  },
+  "record-delivery": {
+    "name": "Record Delivery",
+    "description": "The carrier reports how a delivery attempt went.",
+    "reason": "The order's status should reflect what happened at the door.",
+    "aggregate": "Order",
+    "fields": [
+      {
+        "name": "orderId",
+        "type": "uuid"
+      },
+      {
+        "name": "carrierEventId",
+        "type": "string"
+      },
+      {
+        "name": "delivered",
+        "type": "boolean"
+      }
+    ]
   }
 }

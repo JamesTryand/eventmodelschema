@@ -1064,3 +1064,72 @@ it stays an `error` scenario.
   AND/OR `outcomes` and one holding only `[]` are accepted. Rejected: an empty
   `outcomes`, a duplicate id within one alternative, a flat list of ids, `outcomes` on
   a `stateView` slice, and a malformed id.
+
+## v3.4.0: `ingresses` — a third party calling a command
+
+Raised 2026-09-08 by `project/landing-pages` (payment processors report payments by
+calling in) and `project/container-paas` (certificate authorities and hosting providers
+call back). A `stateChange` slice required a `screenId`, and screens belong to people in
+actor lanes. A command called by another system had no slice it could belong to, so the
+`Checkout` aggregate's `RecordPaymentSucceeded`, `RecordPaymentFailed` and
+`RecordRefund` could only be hand-written around the generated code.
+
+**The shape.** An ingress is the machine counterpart of a screen: the point where a
+command enters the system. A `stateChange` slice names exactly one of `screenId` or
+`ingressId`. One ingress can feed several slices: a processor usually posts every kind
+of notification to one URL, and each kind becomes a different command.
+
+**Why a direct entry point, not an external event plus an automation.** The 2.0 notes
+on `translation` treat an external system's output as an event in its own swimlane,
+turned into a command by an automation (a Bridge). Applied here, each webhook call
+would be stored as a foreign event and then translated. That was considered and
+rejected:
+- It stores the sender's raw payload in our log. Payment and carrier payloads carry
+  personal data that would then need its own `piiSubject` handling, for data the
+  system never decided to keep.
+- It lets anyone who can reach the URL write to the event store. With the direct shape,
+  a call becomes an event only after its signature is verified *and* a decider accepts
+  the command, so a flood of forged or junk calls cannot grow the log.
+- The state machines that asked for this (`Checkout`) already model the calls as
+  commands that can be rejected, with no intermediate event.
+
+**Why `verification` is required.** `landing-pages` states it as structural: an
+unverified call must be rejected, not processed optimistically. Making it optional
+would make the unsafe shape the shortest one to write. The document names a scheme and
+nothing more. Schemes differ in detail between senders (header names, timestamps, how
+the body is signed), so the name is an open string the host maps to a verifier. The
+secret is configuration, and the ingress shape rejects unknown properties, so a secret
+pasted into a document fails validation.
+
+**Why `deliveryIdField` is required.** Senders redeliver on any non-2xx response and on
+timeout, so the same call arriving twice is normal. The runtime keeps the delivery ids
+it has seen and answers a repeat from the first result without dispatching again. This
+is deduplication of *calls*, separate from any idempotency a decider states for its
+own commands (the `Checkout` table's "`processorEventId` seen" rows), and the two
+coexist.
+
+**What stays the host's.**
+- Choosing which command a payload becomes, and mapping its fields onto that command,
+  is adapter code, just as a screen's rendering is UI code.
+- What the sender is told when a decider rejects the command. A rejection is a
+  completed delivery, and answering it with an error usually makes the sender retry
+  for days.
+- Authorization. The signature authenticates the sender, not a user. A command fed by
+  an ingress should not become callable by any signed-in user just because it has no
+  `requiredRole`; generators decide how to keep the two routes apart.
+
+**Concretely:**
+- New top-level `ingresses` (`$def` `ingressRegistry`, entries `$def` `ingress`):
+  `name`, `verification.scheme` and `deliveryIdField` required, `description` and
+  `swimlaneId` optional, nothing else accepted.
+- `stateChange` slices accept `ingressId`, and require exactly one of `screenId` and
+  `ingressId` (previously `screenId` was required).
+- Hotspot element targets accept `ingress`. `manifest.schema.json` and `split.js` treat
+  `ingresses` as a registry file.
+- Additive: a 3.3.0 document validates unchanged against 3.4.0, since every 3.3.0
+  `stateChange` slice has a `screenId`. Verified: `npm run validate`/`validate:manifest`/
+  `roundtrip` pass with the updated examples. An ingress without `swimlaneId` and a
+  hotspot on an ingress are accepted. Rejected: a slice with both or neither entry point,
+  a missing `verification`, an empty scheme, a secret in `verification`, a missing
+  `deliveryIdField`, an unknown ingress property, and `ingressId` on an automation or
+  `stateView` slice.

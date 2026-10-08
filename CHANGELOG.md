@@ -3,6 +3,36 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.4.0
+
+**Additive (non-breaking):**
+- New top-level registry `ingresses`: a place where a third party (a payment
+  processor, a carrier, a certificate authority) calls into the system. It is the
+  machine counterpart of a `screen`. Each ingress has a `name`, an optional
+  `description` and `swimlaneId` (the external system's lane), and two required
+  properties:
+  - `verification.scheme`: the name of the signature scheme every call must pass,
+    such as `hmac-sha256`. The host maps the name to a verifier and holds the secret;
+    a secret can never be written into a document.
+  - `deliveryIdField`: the command field holding the sender's own id for the call.
+    Senders redeliver, so a repeated id is answered from the first result and never
+    dispatched twice.
+- A `stateChange` slice now names exactly one entry point: `screenId` or
+  `ingressId`. Before 3.4.0 `screenId` was required, so a command called by a third
+  party had no slice it could belong to.
+- Hotspots can target an `ingress`. Split documents keep `ingresses` in their own
+  registry file; `manifest.schema.json` and `split.js` are updated.
+- Raised by `project/landing-pages` (payment-processor webhooks) and
+  `project/container-paas` (provider callbacks).
+
+**Examples:** a `carrier-webhook` ingress from the shipping partner feeds a new
+`record-delivery-slice`: `record-delivery` emits `order-delivered` or
+`delivery-failed`, with a success scenario and an error scenario. Both
+order-fulfillment examples are bumped to `3.4.0`.
+
+**Not enforced here:** that `ingressId` names an ingress, and that `deliveryIdField`
+names a field of every command the ingress feeds. Reference checks for a lint.
+
 ## 3.3.0
 
 **Additive (non-breaking):**

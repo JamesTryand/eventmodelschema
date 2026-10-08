@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.3.0",
+  "eventModelingSchemaVersion": "3.4.0",
   "id": "order-fulfillment",
   "name": "Order Fulfillment",
   "description": "Worked example exercising every notation in the schema: all 3 slice patterns, all 3 scenario kinds, a hotspot, a chapter, and an actor lane. The shipping-partner notification slice also demonstrates automation without a read model (a boundary-crossing Bridge/Reactor: event straight to command, no persisted state needed).",
@@ -40,7 +40,9 @@
       ]
     },
     "order-shipped": { "name": "Order Shipped", "description": "The warehouse shipped an order.", "swimlaneId": "warehouse", "aggregate": "Order" },
-    "shipment-notified": { "name": "Shipment Notified", "description": "The shipping partner was notified of a shipment.", "swimlaneId": "shipping-partner" }
+    "shipment-notified": { "name": "Shipment Notified", "description": "The shipping partner was notified of a shipment.", "swimlaneId": "shipping-partner" },
+    "order-delivered": { "name": "Order Delivered", "description": "The carrier delivered the order.", "swimlaneId": "sales", "aggregate": "Order" },
+    "delivery-failed": { "name": "Delivery Failed", "description": "The carrier could not deliver the order.", "swimlaneId": "sales", "aggregate": "Order" }
   },
   "commands": {
     "place-order": {
@@ -54,7 +56,18 @@
       ]
     },
     "ship-order": { "name": "Ship Order", "description": "Warehouse fulfills a pending order.", "reason": "A pending order needs to leave the warehouse.", "aggregate": "Order" },
-    "notify-shipping-partner": { "name": "Notify Shipping Partner", "description": "Informs the external shipping partner that an order has shipped.", "reason": "The shipping partner needs to know about the shipment to process it." }
+    "notify-shipping-partner": { "name": "Notify Shipping Partner", "description": "Informs the external shipping partner that an order has shipped.", "reason": "The shipping partner needs to know about the shipment to process it." },
+    "record-delivery": {
+      "name": "Record Delivery",
+      "description": "The carrier reports how a delivery attempt went.",
+      "reason": "The order's status should reflect what happened at the door.",
+      "aggregate": "Order",
+      "fields": [
+        { "name": "orderId", "type": "uuid" },
+        { "name": "carrierEventId", "type": "string" },
+        { "name": "delivered", "type": "boolean" }
+      ]
+    }
   },
   "readModels": {
     "order-summary": {
@@ -88,6 +101,15 @@
   "screens": {
     "place-order-screen": { "name": "Place Order", "actorLaneId": "customer" },
     "order-status-screen": { "name": "Order Status", "actorLaneId": "customer" }
+  },
+  "ingresses": {
+    "carrier-webhook": {
+      "name": "Carrier Webhook",
+      "description": "The shipping partner calls this to report delivery attempts. It redelivers on any non-2xx response, so every call carries the carrier's own event id.",
+      "swimlaneId": "shipping-partner",
+      "verification": { "scheme": "hmac-sha256" },
+      "deliveryIdField": "carrierEventId"
+    }
   },
   "automations": {
     "auto-ship-pending-orders": { "name": "Auto-Ship Pending Orders", "description": "Reacts to newly placed orders by shipping them." },
@@ -182,6 +204,37 @@
           "given": [{ "eventId": "order-shipped", "data": { "orderId": "order-1" } }],
           "when": { "commandId": "notify-shipping-partner", "data": { "orderId": "order-1" } },
           "then": { "events": [{ "eventId": "shipment-notified", "data": { "orderId": "order-1" } }] }
+        }
+      ]
+    },
+    {
+      "id": "record-delivery-slice",
+      "name": "Record Delivery",
+      "pattern": "stateChange",
+      "swimlaneId": "sales",
+      "chapterId": "order-lifecycle",
+      "businessCapability": "Know whether an order reached the customer",
+      "status": "planned",
+      "ingressId": "carrier-webhook",
+      "commandId": "record-delivery",
+      "eventIds": ["order-delivered", "delivery-failed"],
+      "outcomes": [["order-delivered"], ["delivery-failed"]],
+      "scenarios": [
+        {
+          "id": "carrier-reports-delivery",
+          "name": "The carrier reports a successful delivery",
+          "kind": "stateChange",
+          "given": [{ "eventId": "order-shipped", "data": { "orderId": "order-1" } }],
+          "when": { "commandId": "record-delivery", "data": { "orderId": "order-1", "carrierEventId": "evt-1", "delivered": true } },
+          "then": { "events": [{ "eventId": "order-delivered", "data": { "orderId": "order-1" } }] }
+        },
+        {
+          "id": "delivery-before-shipment-rejected",
+          "name": "A delivery report for an order that never shipped is rejected",
+          "kind": "error",
+          "given": [{ "eventId": "order-placed", "data": { "orderId": "order-1" } }],
+          "when": { "commandId": "record-delivery", "data": { "orderId": "order-1", "carrierEventId": "evt-2", "delivered": true } },
+          "then": { "error": { "code": "ERR_NOT_SHIPPED", "message": "The order has not shipped." } }
         }
       ]
     }

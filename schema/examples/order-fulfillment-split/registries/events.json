@@ -47,5 +47,17 @@
     "name": "Shipment Notified",
     "description": "The shipping partner was notified of a shipment.",
     "swimlaneId": "shipping-partner"
+  },
+  "order-delivered": {
+    "name": "Order Delivered",
+    "description": "The carrier delivered the order.",
+    "swimlaneId": "sales",
+    "aggregate": "Order"
+  },
+  "delivery-failed": {
+    "name": "Delivery Failed",
+    "description": "The carrier could not deliver the order.",
+    "swimlaneId": "sales",
+    "aggregate": "Order"
   }
 }

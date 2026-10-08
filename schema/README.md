@@ -4,6 +4,8 @@ JSON Schema (draft 2020-12) for documents describing an [EventModeling](https://
 model: swimlanes, the 5 elements (Event / Command / Read Model / Screen / Automation),
 the 3 slice patterns (State Change / State View / Automation), scenarios, and the
 optional notation layer (hotspots, chapters, actor lanes, slice status).
+Since 3.4.0 a State Change can also start at an ingress, where a third party (a
+payment processor, say) calls the command instead of a person using a screen.
 
 A Read Model can be consulted for context but never originates an Event — Events are
 only ever produced by a Command. This schema has no "translation" pattern; see
@@ -69,7 +71,7 @@ by swimlane, by pattern-role) without any tooling changes.
 ## Versioning
 
 `eventModelingSchemaVersion` in each document is a semver string; current is
-`"3.3.0"`. Bump the major for a breaking change (one that could invalidate
+`"3.4.0"`. Bump the major for a breaking change (one that could invalidate
 existing documents), the minor for an additive one — see `../CHANGELOG.md` for
 what changed at each version.
 

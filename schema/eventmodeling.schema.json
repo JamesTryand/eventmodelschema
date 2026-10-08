@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.3.0"
+      "default": "3.4.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -26,6 +26,7 @@
     "commands": { "$ref": "#/$defs/commandRegistry" },
     "readModels": { "$ref": "#/$defs/readModelRegistry" },
     "screens": { "$ref": "#/$defs/screenRegistry" },
+    "ingresses": { "$ref": "#/$defs/ingressRegistry" },
     "automations": { "$ref": "#/$defs/automationRegistry" },
     "slices": {
       "type": "array",
@@ -493,6 +494,26 @@
       "additionalProperties": false
     },
 
+    "ingress": {
+      "type": "object",
+      "required": ["name", "verification", "deliveryIdField"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "swimlaneId": { "$ref": "#/$defs/id" },
+        "verification": {
+          "type": "object",
+          "required": ["scheme"],
+          "properties": {
+            "scheme": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "deliveryIdField": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+
     "automation": {
       "type": "object",
       "required": ["name"],
@@ -542,6 +563,11 @@
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/id" },
       "additionalProperties": { "$ref": "#/$defs/screen" }
+    },
+    "ingressRegistry": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/ingress" }
     },
     "automationRegistry": {
       "type": "object",
@@ -725,9 +751,14 @@
           "if": { "type": "object", "properties": { "pattern": { "const": "stateChange" } } },
           "then": {
             "type": "object",
-            "required": ["screenId", "commandId", "eventIds"],
+            "required": ["commandId", "eventIds"],
+            "oneOf": [
+              { "type": "object", "required": ["screenId"] },
+              { "type": "object", "required": ["ingressId"] }
+            ],
             "properties": {
               "screenId": { "$ref": "#/$defs/id" },
+              "ingressId": { "$ref": "#/$defs/id" },
               "commandId": { "$ref": "#/$defs/id" },
               "eventIds": {
                 "type": "array",
@@ -805,7 +836,7 @@
           "properties": {
             "kind": { "const": "element" },
             "elementType": {
-              "enum": ["swimlane", "event", "command", "readModel", "screen", "automation", "chapter", "actorLane"]
+              "enum": ["swimlane", "event", "command", "readModel", "screen", "ingress", "automation", "chapter", "actorLane"]
             },
             "elementId": { "$ref": "#/$defs/id" }
           },
