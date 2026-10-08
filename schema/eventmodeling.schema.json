@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.5.0"
+      "default": "3.6.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -794,6 +794,30 @@
       "additionalProperties": false
     },
 
+    "automationEffect": {
+      "type": "object",
+      "required": ["swimlaneId", "gaveUp"],
+      "properties": {
+        "swimlaneId": { "$ref": "#/$defs/id" },
+        "description": { "type": "string" },
+        "gaveUp": {
+          "type": "object",
+          "required": ["commandId", "resultEventIds"],
+          "properties": {
+            "commandId": { "$ref": "#/$defs/id" },
+            "resultEventIds": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/id" },
+              "minItems": 1
+            },
+            "outcomes": { "$ref": "#/$defs/eventOutcomes" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
     "automationSchedule": {
       "type": "object",
       "required": ["cron"],
@@ -907,6 +931,7 @@
               },
               "delay": { "$ref": "#/$defs/automationDelay" },
               "schedule": { "$ref": "#/$defs/automationSchedule" },
+              "effect": { "$ref": "#/$defs/automationEffect" },
               "readModelId": { "$ref": "#/$defs/id" },
               "commandId": { "$ref": "#/$defs/id" },
               "resultEventIds": {

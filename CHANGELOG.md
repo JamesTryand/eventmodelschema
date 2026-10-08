@@ -3,6 +3,35 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.6.0
+
+**Additive (non-breaking):**
+- Automation slices gain `effect`: the automation does something in the outside world
+  (calls an API, starts a container, sends an email) before reporting back. It has a
+  required `swimlaneId` (the external system), an optional `description`, and a
+  required `gaveUp`.
+  - The slice's own `commandId` and `resultEventIds` report **success**: the command
+    the runtime sends once the outside world has answered.
+  - `gaveUp` (`commandId`, `resultEventIds`, optional `outcomes`) reports that the
+    runtime **stopped trying**. Failing and timing out are one outcome here, with the
+    reason in the command's data, since the domain rarely treats them differently.
+  - The request itself needs no new element: it is the trigger event (or timer, or
+    schedule) that started the automation.
+- Timeouts, retries, backoff and attempt tracking are **not** in the document. The
+  runtime owns them, and the host configures them. Any lifecycle records the runtime
+  keeps (attempts, timeouts) are its own, like the `DataSubject` stream.
+- Raised by `project/container-paas`: its deploy pipeline is mostly calls that take
+  seconds to minutes and can succeed, fail or never answer, and the schema had no way
+  to say an automation calls out at all.
+
+**Examples:** `notify-shipping-partner-slice` is now an effect. Its success command is
+renamed `record-partner-notified` (from `notify-shipping-partner`), and it gives up with
+`record-partner-notification-abandoned` → `partner-notification-abandoned`, with a
+scenario for each. Both order-fulfillment examples are bumped to `3.6.0`.
+
+**Not enforced here:** that `effect.swimlaneId` names a `system` swimlane, and that the
+`gaveUp` ids exist. Reference checks for a lint.
+
 ## 3.5.0
 
 **Additive (non-breaking):**

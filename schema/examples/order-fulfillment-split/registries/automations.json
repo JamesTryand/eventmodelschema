@@ -5,7 +5,7 @@
   },
   "notify-shipping-partner-automation": {
     "name": "Notify Shipping Partner",
-    "description": "Reacts to a shipment leaving the warehouse by notifying the external shipping partner. A Bridge: no local state needed, straight from event to command."
+    "description": "When a shipment leaves the warehouse, calls the shipping partner's API and records whether the partner acknowledged it. No local state needed."
   },
   "delivery-overdue-timer": {
     "name": "Delivery Overdue Timer",

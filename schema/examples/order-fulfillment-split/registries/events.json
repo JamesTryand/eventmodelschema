@@ -45,7 +45,12 @@
   },
   "shipment-notified": {
     "name": "Shipment Notified",
-    "description": "The shipping partner was notified of a shipment.",
+    "description": "The shipping partner acknowledged a shipment.",
+    "swimlaneId": "shipping-partner"
+  },
+  "partner-notification-abandoned": {
+    "name": "Partner Notification Abandoned",
+    "description": "The shipping partner could not be told about a shipment, and the runtime has stopped trying.",
     "swimlaneId": "shipping-partner"
   },
   "order-delivered": {

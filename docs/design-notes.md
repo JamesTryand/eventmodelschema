@@ -1209,3 +1209,78 @@ example, so it uses the setting's default.
   default or with a bad name; both or neither of `triggerEventIds`/`schedule`; `delay`
   on a schedule or on a `stateChange` slice; a four-field cron; an unknown schedule
   property; and a malformed `elapsed`.
+
+## v3.6.0: `effect` — an automation that calls the outside world
+
+Raised 2026-09-08 by `project/container-paas`. Its deploy pipeline is mostly calls to
+other systems: start a container, request a certificate, call a hosting provider. Each
+takes seconds to minutes and can succeed, fail or never answer. The schema had no way to
+say an automation calls out at all, so every such call was invisible in the document.
+
+**Effects are side effects; the log only holds facts about them.** Calling Docker or a
+mail provider is not a fact. It is slow, it can fail, and it may never answer. What the
+system records are facts on either side of it: what was decided, and what the outside
+world said. A deploy shows the shape:
+1. `DeployRelease` (command) → `DeployRequested` (event). A pure decider made this
+   decision.
+2. The shell, outside the functional core, sees `DeployRequested` and calls Docker.
+   This is the side effect.
+3. When Docker answers, the shell sends a **command**, `RecordContainerStarted`.
+4. The `Release` decider accepts it (→ `ContainerStarted`), or rejects it, for example
+   because the release was cancelled in the meantime.
+
+The outside world's answer enters as input, exactly as a person's click does, and never
+goes into the log as an event directly. Deciders never perform effects. This is how
+`extcaller` already works in both runtimes ("never appends a raw event"), and the
+document now says when it happens.
+
+**Why it extends `automation` instead of being a new slice pattern.** The flow is the
+automation pattern (event → command) with a call in the middle: the command is sent
+once the outside world has answered, and which command depends on how it went. A
+separate pattern would repeat every automation property (triggers, timers, schedules, a
+to-do read model) and suggest that the shape is different when it is not.
+
+**What the document says, and what it leaves to the runtime.** The review was clear
+that much of this is operational: values that need tuning once the system runs, and that
+would be decided too early if fixed in the model. So the document states only what the
+domain depends on:
+- that the automation calls an external system (`swimlaneId`);
+- which command reports success (the slice's own `commandId`);
+- which command reports that the runtime gave up (`gaveUp`).
+
+Timeouts, the number of attempts, backoff between them, and the bookkeeping of each
+attempt are the runtime's, configured by the host. The 2026-09-08 proposal modelled that
+lifecycle in the document (`container-paas`'s `ExternalEffect` table: requested,
+started, succeeded, failed, timed out). That table now describes what a runtime does
+internally, not something each document repeats. Any lifecycle records a runtime keeps
+are its own, as the `DataSubject` stream is for erasure.
+
+**Why failing and timing out are one outcome.** The domain almost always reacts the same
+way to "it didn't happen", whether the provider said no or never answered: compensate,
+or tell someone. `gaveUp` is that single outcome, and the reason travels in the
+command's data. A domain that does need to tell them apart can branch on that data in
+its decider.
+
+**What a runtime has to get right.** These follow from the shape, and are stated for
+implementers rather than enforced:
+- The call can happen more than once, for example when the runtime crashes after
+  calling but before recording. Where a provider accepts an idempotency key, the
+  runtime should send one derived from the triggering event.
+- Reports can arrive late, after the domain has moved on. The decider's guards are what
+  make that safe, as with timers.
+- Turning the provider's answer into the command's fields is adapter code, as for
+  ingresses.
+
+**Concretely:**
+- New `$def` `automationEffect`: `swimlaneId` and `gaveUp` required, `description`
+  optional; `gaveUp` has `commandId` and `resultEventIds` required and `outcomes`
+  optional. Nothing else is accepted, so a timeout or retry policy written into a
+  document fails validation.
+- Automation slices accept `effect`, together with any trigger: events, a `delay` or a
+  `schedule`.
+- Additive: a 3.5.0 document validates unchanged against 3.6.0. Verified: `npm run
+  validate`/`validate:manifest`/`roundtrip` pass with the updated examples. Accepted: an
+  effect without a description, `gaveUp` with `outcomes`, an effect on a scheduled
+  automation and one with a `delay`. Rejected: a missing `gaveUp` or `swimlaneId`,
+  `gaveUp` without or with empty `resultEventIds`, a `timeout` or `retry` in the
+  document, and `effect` on a `stateChange` slice.

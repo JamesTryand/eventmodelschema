@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.5.0` — see `CHANGELOG.md` for what changed since
+`eventModelingSchemaVersion` `3.6.0` — see `CHANGELOG.md` for what changed since
 1.0.0 (typed fields, `translation` removed, `aggregate` tagging, a multi-file
 composition layer, the `sliceStatus` value `accepted`, derived read-model fields /
 stream-ending events / scoped queries, a grouped-rollup `groupBy` derivation,
@@ -36,7 +36,7 @@ single-field date-range query filtering via `readModel.filters`, and four
 `command` authorization declarations — `requiredRole`, `fieldGatedRole`,
 `requiredOwnership`, `scope`, plus `readModel.requiredRole`, and — the one breaking
 change, 3.0.0 — a required `field.piiSubject` naming whose key a PII value is
-encrypted under — and 3.1.0's `match` filters for searchable fields, PII included, whose normalizers 3.1.1 pins exactly — and 3.2.0's `readModel.selfAccess`, letting a caller read their own rows, plus `dataSubjects.erasure`, saying who may erase a data subject — and 3.3.0's `outcomes`, saying which events a command emits together and which are alternatives — and 3.4.0's `ingresses`, letting a third party such as a payment processor call a command — and 3.5.0's timers and schedules, automations started by time). A companion lint tool remains future work. Structural validation only — see
+encrypted under — and 3.1.0's `match` filters for searchable fields, PII included, whose normalizers 3.1.1 pins exactly — and 3.2.0's `readModel.selfAccess`, letting a caller read their own rows, plus `dataSubjects.erasure`, saying who may erase a data subject — and 3.3.0's `outcomes`, saying which events a command emits together and which are alternatives — and 3.4.0's `ingresses`, letting a third party such as a payment processor call a command — and 3.5.0's timers and schedules, automations started by time — and 3.6.0's `effect`, an automation that calls the outside world). A companion lint tool remains future work. Structural validation only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a
 separate lint/review layer.
 
