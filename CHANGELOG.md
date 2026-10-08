@@ -3,6 +3,27 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.3.0
+
+**Additive (non-breaking):**
+- `stateChange` and `automation` slices gain an optional `outcomes`: a list of
+  alternatives, each a list of events emitted together. `[["a", "b"], ["c"]]` means
+  "A and B together, or C alone". An empty alternative, `[]`, is a success that emits
+  nothing, such as an idempotent repeat.
+- `eventIds` (and `resultEventIds`) keep their meaning: every event the command can
+  emit. Without `outcomes`, whether those events come together or as alternatives is
+  unspecified, as before.
+- Raised by `project/container-paas` (decision 0008, bounded state machines): a
+  transition emitting `A and B` looked identical to one emitting `A or B`, so the
+  difference could only be written in prose.
+
+**Examples:** `auto-ship-slice` declares `[["order-shipped"], []]`: it ships the order,
+or emits nothing when the order has already shipped. Both order-fulfillment examples
+are bumped to `3.3.0`.
+
+**Not enforced here:** that every id in `outcomes` is in `eventIds` (or
+`resultEventIds`), and that together they cover it. Reference checks for a lint.
+
 ## 3.2.0
 
 **Additive (non-breaking):**

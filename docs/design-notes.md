@@ -1018,3 +1018,49 @@ becomes a real problem, a shared mapping can be added later without breaking any
 - Not enforced here: that `subjectField` names a top-level field of the same read
   model, and that `via.readModelId` exists with `keyField` and `ownerField` among its
   fields. Those are reference checks for a generator or lint, like `piiSubject`.
+
+## v3.3.0: `outcomes` — which events come together, and which are alternatives
+
+Raised 2026-09-08 by `project/container-paas`. Decision 0008 has every aggregate
+specified as a state machine whose transition table lists, per row, the events a
+command emits. `stateChange.eventIds` is a flat list, so a command that emits `A and B`
+in one decision looked the same as one that emits `A` or `B` depending on a guard. The
+tables worked around it in prose. Nothing was broken yet, because no transition emitted
+two events at once, but the next one that did would have had no honest encoding.
+
+**The shape.** `outcomes` is a list of alternatives, each a list of events that are
+emitted together:
+
+```json
+"eventIds": ["a", "b", "c"],
+"outcomes": [["a", "b"], ["c"]]
+```
+
+reads "A and B together, or C alone". This covers any mix of the two, which a single
+switch on the slice (`"mode": "all"` or `"oneOf"`) could not: a command that always
+emits `A` and then either `B` or `C` is `[["a", "b"], ["a", "c"]]`.
+
+**Why `eventIds` stays.** Every consumer of 3.2.0 reads `eventIds` as "the events this
+slice can produce", and that stays true. `outcomes` adds structure on top rather than
+replacing the list, so nothing that reads `eventIds` today has to change, and the
+change is additive. The cost is that the two can disagree. Checking that `outcomes`
+only uses ids from `eventIds` and covers all of them is a reference check, left to a
+lint like the other ones.
+
+**Why an empty alternative is allowed.** 0008 forbids "ignored" as a cell value: a
+repeat command that changes nothing has to be stated as idempotent. `[]` is how a slice
+says that one of its accepted outcomes emits no event. A rejection is not an outcome;
+it stays an `error` scenario.
+
+**Also on automations.** An automation's command has the same ambiguity in
+`resultEventIds`, so `outcomes` is accepted there too, with the same meaning.
+
+**Concretely:**
+- New `$def` `eventOutcomes`: a non-empty array of arrays of ids, each inner array
+  without duplicates and possibly empty.
+- `stateChange` and `automation` slices accept `outcomes`; `stateView` slices do not.
+- Additive: a 3.2.0 document validates unchanged against 3.3.0. Verified: `npm run
+  validate`/`validate:manifest`/`roundtrip` pass with the updated examples. A mixed
+  AND/OR `outcomes` and one holding only `[]` are accepted. Rejected: an empty
+  `outcomes`, a duplicate id within one alternative, a flat list of ids, `outcomes` on
+  a `stateView` slice, and a malformed id.

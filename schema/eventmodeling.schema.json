@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.2.0"
+      "default": "3.3.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -689,6 +689,16 @@
       "unevaluatedProperties": false
     },
 
+    "eventOutcomes": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/id" },
+        "uniqueItems": true
+      },
+      "minItems": 1
+    },
+
     "sliceBase": {
       "type": "object",
       "required": ["id", "name", "pattern", "swimlaneId", "status", "scenarios"],
@@ -724,6 +734,7 @@
                 "items": { "$ref": "#/$defs/id" },
                 "minItems": 1
               },
+              "outcomes": { "$ref": "#/$defs/eventOutcomes" },
               "scenarios": {
                 "type": "array",
                 "items": {
@@ -771,6 +782,7 @@
                 "items": { "$ref": "#/$defs/id" },
                 "minItems": 1
               },
+              "outcomes": { "$ref": "#/$defs/eventOutcomes" },
               "scenarios": {
                 "type": "array",
                 "items": {
