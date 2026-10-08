@@ -28,15 +28,29 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.7.0` — see `CHANGELOG.md` for what changed since
-1.0.0 (typed fields, `translation` removed, `aggregate` tagging, a multi-file
-composition layer, the `sliceStatus` value `accepted`, derived read-model fields /
-stream-ending events / scoped queries, a grouped-rollup `groupBy` derivation,
-single-field date-range query filtering via `readModel.filters`, and four
-`command` authorization declarations — `requiredRole`, `fieldGatedRole`,
-`requiredOwnership`, `scope`, plus `readModel.requiredRole`, and — the one breaking
-change, 3.0.0 — a required `field.piiSubject` naming whose key a PII value is
-encrypted under — and 3.1.0's `match` filters for searchable fields, PII included, whose normalizers 3.1.1 pins exactly — and 3.2.0's `readModel.selfAccess`, letting a caller read their own rows, plus `dataSubjects.erasure`, saying who may erase a data subject — and 3.3.0's `outcomes`, saying which events a command emits together and which are alternatives — and 3.4.0's `ingresses`, letting a third party such as a payment processor call a command — and 3.5.0's timers and schedules, automations started by time — and 3.6.0's `effect`, an automation that calls the outside world — and 3.7.0's `partitioning`, putting every stream and read-model row in a partition, such as a tenant, by default). A companion lint tool remains future work. Structural validation only — see
+`eventModelingSchemaVersion` `3.7.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+main additions are:
+
+- **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
+  composition layer; the `sliceStatus` value `accepted`; derived read-model fields,
+  stream-ending events and scoped queries; a grouped-rollup `groupBy` derivation;
+  date-range filters (`readModel.filters`); command authorization (`requiredRole`,
+  `fieldGatedRole`, `requiredOwnership`, `scope`) and `readModel.requiredRole`.
+- **3.0.0** (the one breaking change): a required `field.piiSubject`, naming whose key a
+  PII value is encrypted under.
+- **3.1.0–3.1.1:** `match` filters for searchable fields, PII included, with normalizers
+  pinned exactly.
+- **3.2.0:** `readModel.selfAccess`, letting a caller read their own rows, and
+  `dataSubjects.erasure`, saying who may erase a data subject.
+- **3.3.0:** `outcomes`, saying which events a command emits together and which are
+  alternatives.
+- **3.4.0:** `ingresses`, letting a third party such as a payment processor call a command.
+- **3.5.0:** timers and schedules, automations started by time.
+- **3.6.0:** `effect`, an automation that calls the outside world.
+- **3.7.0:** `partitioning`, putting every stream and read-model row in a partition (such
+  as a tenant) by default.
+
+A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a
 separate lint/review layer.
 
