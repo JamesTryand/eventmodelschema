@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.4.0"
+      "default": "3.5.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -600,6 +600,15 @@
       "additionalProperties": false
     },
 
+    "elapsedRef": {
+      "type": "object",
+      "required": ["elapsed"],
+      "properties": {
+        "elapsed": { "$ref": "#/$defs/duration" }
+      },
+      "additionalProperties": false
+    },
+
     "commandRef": {
       "type": "object",
       "required": ["commandId"],
@@ -669,7 +678,12 @@
         "kind": { "$ref": "#/$defs/scenarioKind" },
         "given": {
           "type": "array",
-          "items": { "$ref": "#/$defs/eventRef" }
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/eventRef" },
+              { "$ref": "#/$defs/elapsedRef" }
+            ]
+          }
         }
       }
     },
@@ -713,6 +727,81 @@
         }
       ],
       "unevaluatedProperties": false
+    },
+
+    "duration": {
+      "type": "string",
+      "pattern": "^P(?=\\d|T\\d)(\\d+W)?(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+    },
+
+    "settingName": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+    },
+
+    "durationValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/duration" },
+        {
+          "type": "object",
+          "required": ["setting", "default"],
+          "properties": {
+            "setting": { "$ref": "#/$defs/settingName" },
+            "default": { "$ref": "#/$defs/duration" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "cronExpression": {
+      "type": "string",
+      "pattern": "^\\S+(\\s+\\S+){4}$"
+    },
+
+    "cronValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/cronExpression" },
+        {
+          "type": "object",
+          "required": ["setting", "default"],
+          "properties": {
+            "setting": { "$ref": "#/$defs/settingName" },
+            "default": { "$ref": "#/$defs/cronExpression" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "automationDelay": {
+      "type": "object",
+      "oneOf": [
+        { "type": "object", "required": ["after"] },
+        { "type": "object", "required": ["at"] }
+      ],
+      "properties": {
+        "after": { "$ref": "#/$defs/durationValue" },
+        "at": { "type": "string", "minLength": 1 },
+        "key": { "type": "string", "minLength": 1 },
+        "cancelledByEventIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "automationSchedule": {
+      "type": "object",
+      "required": ["cron"],
+      "properties": {
+        "cron": { "$ref": "#/$defs/cronValue" },
+        "timeZone": { "type": "string", "minLength": 1, "default": "UTC" }
+      },
+      "additionalProperties": false
     },
 
     "eventOutcomes": {
@@ -798,7 +887,17 @@
           "if": { "type": "object", "properties": { "pattern": { "const": "automation" } } },
           "then": {
             "type": "object",
-            "required": ["automationId", "triggerEventIds", "commandId", "resultEventIds"],
+            "required": ["automationId", "commandId", "resultEventIds"],
+            "oneOf": [
+              { "type": "object", "required": ["triggerEventIds"] },
+              { "type": "object", "required": ["schedule"] }
+            ],
+            "allOf": [
+              {
+                "if": { "type": "object", "required": ["delay"] },
+                "then": { "type": "object", "required": ["triggerEventIds"] }
+              }
+            ],
             "properties": {
               "automationId": { "$ref": "#/$defs/id" },
               "triggerEventIds": {
@@ -806,6 +905,8 @@
                 "items": { "$ref": "#/$defs/id" },
                 "minItems": 1
               },
+              "delay": { "$ref": "#/$defs/automationDelay" },
+              "schedule": { "$ref": "#/$defs/automationSchedule" },
               "readModelId": { "$ref": "#/$defs/id" },
               "commandId": { "$ref": "#/$defs/id" },
               "resultEventIds": {

@@ -3,6 +3,45 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.5.0
+
+**Additive (non-breaking):**
+- Automation slices can be started by time. Either way, the result is still a
+  command that a decider can reject.
+  - **`delay`** (with `triggerEventIds`): each trigger event starts a timer, and
+    when it goes off the automation runs. `after` gives a duration, or `at` names a
+    field of the trigger event holding the time. By default the timer belongs to the
+    trigger's stream; `key` names a field to attach it to instead, such as
+    `customerId`. A later trigger with the same key restarts the timer, and any of
+    `cancelledByEventIds` with the same key cancels it.
+  - **`schedule`** (instead of `triggerEventIds`): `cron`, a five-field cron
+    expression, and an optional `timeZone` (IANA name, default `UTC`). With
+    `readModelId`, the command is sent once per row; without, once per tick.
+  - An automation slice now needs exactly one of `triggerEventIds` and `schedule`.
+    `delay` needs `triggerEventIds`.
+- Durations are ISO 8601, limited to weeks, days, hours, minutes and whole seconds
+  (`P5D`, `PT30M`, `P1DT2H`). A day is exactly 24 hours. Months and years are left
+  out, because "a month later" needs calendar rules.
+- A duration or cron expression can be a literal, or
+  `{ "setting": "<name>", "default": <value> }`. The host can change a named setting
+  without changing the document, and the default keeps the document runnable as
+  written.
+- Scenarios: `given` can contain `{ "elapsed": "<duration>" }` between events,
+  meaning that much time passes there. This works in any scenario, since a decider
+  guarding on time needs it too.
+- Raised by `project/landing-pages` (checkout expiry, drip sequences) and
+  `project/container-paas` (certificate renewal, reconcile loops).
+
+**Examples:** `delivery-overdue-slice` flags an order not delivered or failed
+`deliveryOverdueAfter` (default `P5D`) after shipping, with an `elapsed` scenario.
+`reconcile-shipments-slice` retries shipping every row of `pending-shipments` on
+`shipmentReconcileCron` (default every 15 minutes). Both order-fulfillment examples
+are bumped to `3.5.0`.
+
+**Not enforced here:** that `at`, `key` and the cancelling events' key field name
+fields of those events, and that a cron expression is valid beyond having five
+fields. Checks for a lint or the host.
+
 ## 3.4.0
 
 **Additive (non-breaking):**

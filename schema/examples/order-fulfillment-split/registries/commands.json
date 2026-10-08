@@ -46,5 +46,17 @@
         "type": "boolean"
       }
     ]
+  },
+  "flag-delivery-overdue": {
+    "name": "Flag Delivery Overdue",
+    "description": "Marks a shipped order whose delivery has taken too long.",
+    "reason": "Someone should chase the carrier before the customer has to.",
+    "aggregate": "Order",
+    "fields": [
+      {
+        "name": "orderId",
+        "type": "uuid"
+      }
+    ]
   }
 }

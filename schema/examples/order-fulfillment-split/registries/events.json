@@ -59,5 +59,11 @@
     "description": "The carrier could not deliver the order.",
     "swimlaneId": "sales",
     "aggregate": "Order"
+  },
+  "delivery-overdue": {
+    "name": "Delivery Overdue",
+    "description": "A shipped order has not been reported delivered or failed in time.",
+    "swimlaneId": "sales",
+    "aggregate": "Order"
   }
 }

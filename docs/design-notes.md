@@ -1133,3 +1133,79 @@ coexist.
   a missing `verification`, an empty scheme, a secret in `verification`, a missing
   `deliveryIdField`, an unknown ingress property, and `ingressId` on an automation or
   `stateView` slice.
+
+## v3.5.0: timers and schedules — automations started by time
+
+Raised 2026-09-08 by `project/landing-pages` and `project/container-paas`. A checkout
+that is never paid has to expire; a drip sequence sends one email some days after
+another; a certificate has to be renewed before it runs out; a reconcile loop runs every
+few minutes. The schema had no way to say any of this, so each one had to be an outside
+scheduler sending ordinary commands, and the model said nothing about it.
+
+**Time starts an automation; it never produces an event.** A timer going off is not a
+fact about the domain, and a decider may still have a reason to refuse. So both forms
+end the way every automation does, with a command. The `Checkout` table keeps its
+"before expiry → `ERR_NOT_EXPIRED`" row: timers are delivered at least once and can be
+late, and the decider is what makes that safe.
+
+**Timers are started and cancelled by events, never by commands.** A decider only
+returns events, so this is the only way to keep it pure. A command that wants a
+reminder emits an event, and the event starts the timer. It also means the timer is
+part of the record: whatever started or cancelled it is in the log.
+
+**One timer concept, attached to the stream or to a field.** The review raised two
+cases that both seemed valid: a timer per stream ("abandon this checkout 30 minutes
+after it started"), and a timer that more than one source can set and cancel ("remind
+this customer three days after their last activity", whichever stream that activity
+was on). They differ only in what the timer belongs to, so they are one shape with one
+option. By default, the timer belongs to the trigger's stream. `key` names a field
+instead, and then any trigger or cancelling event carrying the same value of that field
+affects the same timer. A new trigger for a key restarts its timer rather than adding a
+second one.
+
+**`after` or `at`.** `after` is a duration counted from the trigger event. `at` names a
+field of the trigger event holding the moment itself, for deadlines the domain already
+knows (a checkout created with an `expiresAt`). If that moment has already passed, the
+timer goes off at once.
+
+**Schedules are timers with no event.** A `schedule` replaces `triggerEventIds` with a
+cron expression. With a `readModelId`, each tick sends the command once per row of that
+read model: the to-do list pattern, which is how a reconcile loop finds its work.
+Without one, each tick sends the command once. What happens to ticks missed while the
+system was down is left to the host, because it is an operational choice.
+
+**Durations and cron expressions can be settings.** The review asked that operational
+values not be fixed in the model too early. Some values are business rules (a checkout
+expires after 30 minutes); others need tuning once the system runs (how often to
+reconcile). The schema can't tell them apart, so the author chooses: write a literal, or
+write `{ "setting": "checkoutExpiry", "default": "PT30M" }`. A setting names a value the
+host can override without the document changing. The default is required, so a document
+runs as written and a reader can see the intended value.
+
+**Why no months or years.** "One month after 31 January" needs calendar rules and a time
+zone, and different runtimes answer it differently. Weeks, days, hours, minutes and
+whole seconds have one meaning everywhere (a day is exactly 24 hours). Months can be
+added later without breaking anything if a real document needs them.
+
+**Scenarios.** A timer's example needs time to pass, so `given` can contain
+`{ "elapsed": "P5D" }` between events. It is allowed in any scenario, not only on
+timer slices, because a decider that guards on time (`ERR_NOT_EXPIRED`) needs the same
+thing for its own examples. `elapsed` takes a literal only: a scenario is one concrete
+example, so it uses the setting's default.
+
+**Concretely:**
+- New `$defs`: `duration`, `settingName`, `durationValue`, `cronExpression`,
+  `cronValue`, `automationDelay`, `automationSchedule`, `elapsedRef`.
+- Automation slices accept `delay` and `schedule`, need exactly one of
+  `triggerEventIds` and `schedule`, and accept `delay` only with `triggerEventIds`.
+- `scenarioBase.given` items are an event reference or an `elapsed` entry.
+- Additive: a 3.4.0 document validates unchanged against 3.5.0, since every 3.4.0
+  automation slice has `triggerEventIds`. Verified: `npm run validate`/
+  `validate:manifest`/`roundtrip` pass with the updated examples. Seven valid variants
+  are accepted (a literal `after`; `at` with `key`; `P1DT1H30M45S`; weeks; a literal
+  cron with a time zone; a schedule without a read model; `elapsed` in a `stateChange`
+  slice's scenario). Eighteen invalid ones are rejected, among them `P`, `PT`, months,
+  years and fractional seconds; both or neither of `after`/`at`; a setting without a
+  default or with a bad name; both or neither of `triggerEventIds`/`schedule`; `delay`
+  on a schedule or on a `stateChange` slice; a four-field cron; an unknown schedule
+  property; and a malformed `elapsed`.
