@@ -1481,3 +1481,30 @@ command-side check on one aggregate instance. Here the question is which rows of
 are visible. A per-scope role list ("a PM may see these") would need a PM role, and
 here PM is an assignment, not a role. Who manages a project is data, so the grant is a
 join on data, which is what a scope already is.
+
+## v3.9.0: `removedByEventIds` — an event that takes a row away
+
+Raised 2026-10-09 by `project/timesheets` (its decision D23). Unassigning a staff member
+from a project should take their row out of the project-staff read model. Nothing in the
+document could say so. `endsStream` (2.2.0) looks like it might, but it marks the end of
+a stream for the write side's `Exists`; it says nothing about read models, and a read
+model built from events across streams cannot read it as a delete anyway. So that
+runtime's projection re-merged the unassignment's fields into the row and kept it. The
+person stayed "assigned" for every rule that joins through that read model. Since 3.8.0
+that includes access (a `grantsAccess` scope), so a stale row is a stale grant. Two other
+read models there had their delete hand-written; this one was simply missed.
+
+**What it means.** Each event in `removedByEventIds` deletes the row it targets. The
+target is found the way the read model's seed events find theirs: the row keyed by the
+event's own stream id. That covers the cases seen so far, an assignment, an override or
+an attachment record whose own stream ends with the removal. A later seed event for the
+same stream creates the row afresh, with none of the old values.
+
+**Why a list on the read model, not a flag on the event.** One event can mean "gone" to
+one read model and "changed" to another. An unassignment removes the project-staff row
+but only decrements a count on the projects read model. So the read model says which
+events remove its rows, just as `builtFromEventIds` says which events build them.
+
+**Not covered.** A delete keyed by a payload field rather than the stream id, such as
+removing every row for a project when the project is deleted, has no use case yet. It
+would follow `count`'s `rowKeyField` if it ever does.

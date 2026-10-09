@@ -3,6 +3,22 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.9.0
+
+**Additive (non-breaking):**
+- `readModel` gains `removedByEventIds`: events that each remove the row they target. A
+  row is targeted the way the read model's seed events target it, by the event's own
+  stream id. A later seed event for that stream creates the row again. Each id should
+  also be in `builtFromEventIds`.
+- Without it, nothing could say "this event takes the row away". `endsStream` (2.2.0) is
+  about the write side's `Exists`, not read models. So every runtime hand-wrote the
+  delete, or forgot to.
+- Example `read-access.json`: unassigning a project manager removes the row, and with it
+  the access the row granted (a 3.8.0 granting scope through that read model).
+- Raised by `project/timesheets` (decision D23, 2026-10-09). An unassigned staff member
+  kept their project-staff row, and with it access to the project's documents. Two other
+  projections there already hand-wrote this delete.
+
 ## 3.8.0
 
 **Additive (non-breaking):**
