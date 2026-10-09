@@ -11,7 +11,9 @@
     "project-manager-assigned": {
       "name": "Project Manager Assigned",
       "swimlaneId": "work",
+      "aggregate": "project",
       "fields": [
+        { "name": "assignmentId", "type": "string", "idAttribute": true },
         { "name": "projectId", "type": "string" },
         { "name": "staffId", "type": "string" }
       ]
@@ -19,6 +21,7 @@
     "time-logged": {
       "name": "Time Logged",
       "swimlaneId": "work",
+      "aggregate": "timeEntry",
       "fields": [
         { "name": "entryId", "type": "string", "idAttribute": true },
         { "name": "projectId", "type": "string" },
@@ -28,7 +31,8 @@
     }
   },
   "commands": {
-    "log-time": { "name": "Log Time" }
+    "log-time": { "name": "Log Time", "aggregate": "timeEntry" },
+    "assign-project-manager": { "name": "Assign Project Manager", "aggregate": "project" }
   },
   "readModels": {
     "project-managers": {
@@ -36,6 +40,7 @@
       "question": "Who manages which project?",
       "builtFromEventIds": ["project-manager-assigned"],
       "fields": [
+        { "name": "assignmentId", "type": "string", "idAttribute": true },
         { "name": "projectId", "type": "string" },
         { "name": "staffId", "type": "string" }
       ],
@@ -69,9 +74,21 @@
   },
   "screens": {
     "log-time-screen": { "name": "Log Time" },
+    "projects-screen": { "name": "Projects" },
     "my-time-screen": { "name": "My Time" }
   },
   "slices": [
+    {
+      "id": "assign-project-manager-slice",
+      "name": "Assign Project Manager",
+      "pattern": "stateChange",
+      "swimlaneId": "work",
+      "status": "created",
+      "screenId": "projects-screen",
+      "commandId": "assign-project-manager",
+      "eventIds": ["project-manager-assigned"],
+      "scenarios": []
+    },
     {
       "id": "log-time-slice",
       "name": "Log Time",
@@ -126,7 +143,7 @@
           "name": "A granting scope adds the entries on projects the caller manages",
           "kind": "stateView",
           "given": [
-            { "eventId": "project-manager-assigned", "data": { "projectId": "p2", "staffId": "s1" } },
+            { "eventId": "project-manager-assigned", "data": { "assignmentId": "p2:s1", "projectId": "p2", "staffId": "s1" } },
             { "eventId": "time-logged", "data": { "entryId": "e1", "projectId": "p1", "staffId": "s1", "hours": 2 } },
             { "eventId": "time-logged", "data": { "entryId": "e2", "projectId": "p2", "staffId": "s2", "hours": 3 } },
             { "eventId": "time-logged", "data": { "entryId": "e3", "projectId": "p3", "staffId": "s3", "hours": 1 } }
@@ -146,7 +163,7 @@
           "name": "A scope param names the caller, whatever value is sent",
           "kind": "stateView",
           "given": [
-            { "eventId": "project-manager-assigned", "data": { "projectId": "p2", "staffId": "s2" } },
+            { "eventId": "project-manager-assigned", "data": { "assignmentId": "p2:s2", "projectId": "p2", "staffId": "s2" } },
             { "eventId": "time-logged", "data": { "entryId": "e2", "projectId": "p2", "staffId": "s2", "hours": 3 } }
           ],
           "when": {
