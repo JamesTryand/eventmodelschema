@@ -1491,7 +1491,7 @@ a stream for the write side's `Exists`; it says nothing about read models, and a
 model built from events across streams cannot read it as a delete anyway. So that
 runtime's projection re-merged the unassignment's fields into the row and kept it. The
 person stayed "assigned" for every rule that joins through that read model. Since 3.8.0
-that includes access (a `grantsAccess` scope), so a stale row is a stale grant. Two other
+that includes access (a `grantsAccess` scope), so a stale row is a stale grant. Four other
 read models there had their delete hand-written; this one was simply missed.
 
 **What it means.** Each event in `removedByEventIds` deletes the row it targets. The

@@ -16,7 +16,7 @@ See `docs/design-notes.md` for the full rationale behind each change.
 - Example `read-access.json`: unassigning a project manager removes the row, and with it
   the access the row granted (a 3.8.0 granting scope through that read model).
 - Raised by `project/timesheets` (decision D23, 2026-10-09). An unassigned staff member
-  kept their project-staff row, and with it access to the project's documents. Two other
+  kept their project-staff row, and with it access to the project's documents. Four other
   projections there already hand-wrote this delete.
 
 ## 3.8.0
