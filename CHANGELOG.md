@@ -26,8 +26,10 @@ See `docs/design-notes.md` for the full rationale behind each change.
     params narrow within that.
   - A read model with neither `selfAccess` nor a `grantsAccess` scope refuses them, as
     before.
-  - A read model without `requiredRole` has no role holders, so every caller gets the
-    second rule.
+  - A read model without `requiredRole` but with `selfAccess` or a `grantsAccess` scope
+    has no role holders, so every caller gets the second rule (as 3.2.0 already said for
+    `selfAccess`). A read model that declares none of the three is unchanged: every
+    signed-in caller sees every row.
 - **Generators must fail closed.** A runtime that cannot apply a declared access rule
   must refuse to generate, or refuse the query. It must never serve the rows unscoped.
 - New example `examples/read-access.json`; the order-fulfillment examples are bumped.

@@ -1467,6 +1467,10 @@ reads as a role holder, which is what every existing scenario meant.
    Params narrow within that union.
 4. Otherwise they are refused (403), as in 2.7.0.
 
+Without `requiredRole`, nobody holds the role. A read model with `selfAccess` or a
+granting scope then gives every caller rule 3. A read model with none of the three
+declarations keeps its old meaning, where every signed-in caller sees every row.
+
 A caller whose subject id cannot be resolved gets an empty result under rule 3, for the
 reason 3.2.0 gives. That is different from a runtime that has no way to resolve subject
 ids at all (a host that never wired it). There the rule cannot be applied, and the
