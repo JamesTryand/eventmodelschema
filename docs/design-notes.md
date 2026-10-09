@@ -983,6 +983,11 @@ more:
 - Erasure cannot be undone, so asking for re-authentication or confirmation before
   erasing is always the host's responsibility, never the schema's.
 
+**CORRECTED in 3.7.1:** erasure is now a governed process in the runtimes (a request is
+checked against retention duties and can be held), so this declaration authorises the
+*request* that starts erasure, never `EraseSubject` itself. The `EraseSubject` wording
+above describes the 3.2.0 understanding; see v3.7.1 for why it changed.
+
 **Why a top-level `dataSubjects` object.** `EraseSubject` is not a command in any
 document, so there is no command to attach a rule to, and erasure covers every read
 model and event at once. A rule for the whole document belongs at the top level.
@@ -1357,3 +1362,54 @@ which partition.
   hyphenated `key`, an empty `crossPartitionRoles`, an unknown `partitioning`
   property (such as a storage choice), `partitioned: "global"`, `partitioned` on a
   screen, and `partitionFrom` on a `stateChange` slice.
+
+## v3.7.1: erasure is requested, and data subjects stay within a partition
+
+Two clarifications. **No schema shape change.**
+
+**`dataSubjects.erasure` authorises the request, not the erasure.** 3.2.0 described the
+declaration as saying who may call the runtime's built-in `EraseSubject`. Since then the
+runtimes have made erasure a governed process, because a request to erase can collide
+with a legal duty to keep the data (payroll, tax and employment records, for example),
+and GDPR Article 17 itself exempts data kept to meet a legal obligation. In dotnetcqrs
+the lifecycle is: `RequestErasure` → a retention check → `ErasureHeld` (with a reason
+and a review date) or `ErasureApproved` → `SubjectErased`, which destroys the key. A
+legal hold blocks the last step whatever else happens. Holds and approvals are ordinary
+events, so the reasons are on the record too.
+
+Under that process, `EraseSubject` is the administrator override that skips the retention
+check. If `self: true` authorised it, a person could destroy their own key the moment
+they asked, which is exactly what governing erasure prevents. So:
+- `self` and `roles` authorise **the request that starts erasure** (`RequestErasure`
+  where the runtime governs erasure).
+- Holding, approving, placing or releasing a legal hold, and direct erasure stay host
+  policy, normally administrators only. A document never declares them, and a generator
+  must not read `dataSubjects.erasure` as authority for any of them.
+- Without the declaration, no one may request erasure through the generated routes; the
+  host decides, as before. A runtime that fails closed (refuses every data-subject
+  command until a policy is wired) is the intended default.
+- A system with nothing to retain loses nothing: its retention policy approves every
+  request at once, so "delete my account" behaves the same.
+
+**A data subject belongs to one partition.** 3.7.0 left open what happens to a person
+who appears in two partitions, such as one person working for two tenants. The answer is
+that they are two data subjects. Each has its own key and its own erasure process,
+governed by that partition's own retention duties, which can differ. The same applies
+across systems:
+- A shared key would let one erasure destroy data that another tenant, possibly a
+  different data controller, is obliged or entitled to keep.
+- Systems that share personal data pass an erasure on by sending the other system a
+  request. Its own retention check rules on it, so it may hold the request. This is
+  also how a controller meets Article 19's duty to tell recipients about an erasure.
+- No system shares keys with another or erases another's data directly.
+- If a system links one person across partitions (one login used in two tenants), that
+  link is personal data in its own right and needs its own subject and erasure handling
+  wherever it is stored.
+
+Which data must be kept, for how long, and who the data controller is are business and
+legal questions. This schema fixes only the shape of the machinery, not those answers.
+
+**Concretely:** no `$def` changes. The `eventModelingSchemaVersion` default and both
+order-fulfillment examples are bumped to `3.7.1`, and the v3.2.0 notes and changelog
+entry carry a correction pointing here. Verified: `npm run validate`/
+`validate:manifest`/`roundtrip` pass unchanged.

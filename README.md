@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.7.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `3.7.1`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -49,6 +49,8 @@ main additions are:
 - **3.6.0:** `effect`, an automation that calls the outside world.
 - **3.7.0:** `partitioning`, putting every stream and read-model row in a partition (such
   as a tenant) by default.
+- **3.7.1:** clarifications: an erasure declaration authorises a *request* for erasure,
+  and a data subject belongs to one partition.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

@@ -3,6 +3,27 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.7.1
+
+**Clarification (no schema shape change):**
+- **`dataSubjects.erasure` authorises a request for erasure, never erasure itself.**
+  3.2.0 described it as saying who may call the runtime's `EraseSubject`. Runtimes now
+  govern erasure: a request is checked against the system's retention duties and can
+  be held (or blocked by a legal hold) before the key is destroyed. So `self` and
+  `roles` authorise the command that *starts* that process (`RequestErasure` in
+  dotnetcqrs). Holding, approving, legal holds and direct erasure (`EraseSubject`,
+  which skips the retention check) are host policy and are never declared in a
+  document. Read the old way, `self: true` would have let a person destroy their own
+  key the moment they asked. A system with nothing to retain approves requests at
+  once, so "delete my account" behaves the same there.
+- **A data subject belongs to one partition.** With `partitioning`, the same person in
+  two partitions (or in two systems) is two data subjects, each with its own key and
+  its own erasure process. Systems that share data pass an erasure on by sending the
+  other system a request, which its own retention check then rules on; they never
+  share keys or erase each other's data directly.
+- Documents need no change: anything valid under 3.7.0 is valid under 3.7.1. The
+  `eventModelingSchemaVersion` default and both order-fulfillment examples are bumped.
+
 ## 3.7.0
 
 **Additive (non-breaking):**
@@ -182,6 +203,8 @@ are bumped to `3.3.0`.
   authorizing `EraseSubject` stays the host's job. Re-authentication and confirmation
   are always the host's. This is a declaration, not a modelled data-subject
   lifecycle (that stays a runtime concern).
+  **Corrected in 3.7.1:** the declaration authorises the *request* that starts
+  erasure (`RequestErasure` where the runtime governs erasure), never `EraseSubject`.
 - Split documents carry `dataSubjects` inline in the manifest, like `swimlanes`.
   `manifest.schema.json`, `split.js` and `join.js` are updated to match.
 - Raised by `platform/eventmodeling-codegen`: a person reading or erasing their own
