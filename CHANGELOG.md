@@ -3,6 +3,38 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.8.0
+
+**Additive (non-breaking):**
+- `readModelScope` gains `grantsAccess` (boolean, default `false`). When it is `true`,
+  the scope's param always names the caller: its value is the caller's own subject id,
+  and whatever value the request sent is ignored. A caller who does not hold the read
+  model's `requiredRole` may also see the rows this scope admits for them. "The
+  entries on projects I manage" is the example: a scope through a project-managers
+  read model.
+- `readModelSelfAccess` gains `param`, an optional query param. When a request carries
+  it, any caller is narrowed to their own rows, role holders included, and its value is
+  ignored. Without it, a manager on their own "my time" page sees everyone's rows,
+  because holding `requiredRole` shows every row.
+- `readModelQuery` (a stateView scenario's `when`) gains `caller`: `{ "subjectId",
+  "role"? }`, the caller the scenario reads as. Leaving it out keeps the old meaning: a
+  caller who holds `requiredRole`.
+- **The access rule, now stated whole:**
+  - A caller holding `requiredRole` sees every row; params only narrow.
+  - Any other signed-in caller sees the rows whose `selfAccess.subjectField` is their
+    subject id, together with the rows each `grantsAccess` scope admits for them;
+    params narrow within that.
+  - A read model with neither `selfAccess` nor a `grantsAccess` scope refuses them, as
+    before.
+  - A read model without `requiredRole` has no role holders, so every caller gets the
+    second rule.
+- **Generators must fail closed.** A runtime that cannot apply a declared access rule
+  must refuse to generate, or refuse the query. It must never serve the rows unscoped.
+- New example `examples/read-access.json`; the order-fulfillment examples are bumped.
+- Raised by `project/timesheets` (decision D21, 2026-10-09). Its hand-written routes
+  scoped a staff caller only when the client sent the scope param, so a caller who left
+  the param out read everyone's rows.
+
 ## 3.7.1
 
 **Clarification (no schema shape change):**

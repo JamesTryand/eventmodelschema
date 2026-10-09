@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.7.1`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `3.8.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -51,6 +51,9 @@ main additions are:
   as a tenant) by default.
 - **3.7.1:** clarifications: an erasure declaration authorises a *request* for erasure,
   and a data subject belongs to one partition.
+- **3.8.0:** read access for callers without `requiredRole`: a scope can grant access
+  (`grantsAccess`), `selfAccess` can take a param, and a stateView scenario can name its
+  caller.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

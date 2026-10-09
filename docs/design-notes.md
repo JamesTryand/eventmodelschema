@@ -1413,3 +1413,67 @@ legal questions. This schema fixes only the shape of the machinery, not those an
 order-fulfillment examples are bumped to `3.7.1`, and the v3.2.0 notes and changelog
 entry carry a correction pointing here. Verified: `npm run validate`/
 `validate:manifest`/`roundtrip` pass unchanged.
+
+## v3.8.0: read access for callers without `requiredRole`
+
+Raised 2026-10-09 by `project/timesheets` (its decision D21). Seven of its read models
+let staff in, and each one meant "your own rows, and the rows on projects you manage".
+The schema could say neither half fully. `selfAccess` (3.2.0) said "your own rows", but
+only narrowed: a caller without `requiredRole` saw their own rows and nothing more. The
+"projects you manage" half was a plain scope (2.x), and a plain scope is a filter whose
+value the request supplies. So the rule lived in hand-written route code that bound the
+param to the caller only when the request carried it. A staff caller who left the param
+out read every row, pay included. Declaring the rule in the document puts it where a
+generator emits it every time, instead of where a hand patch can be skipped.
+
+**`grantsAccess` on a scope.** A scope whose param means "me" (`pmStaffId`,
+`managedBy`) has two jobs, and 2.x gave it only one:
+- **Binding.** The value is always the caller's subject id, never the request's. A
+  request can still send the param, and it still narrows, but only to the caller's own
+  slice.
+- **Granting.** For a caller without `requiredRole`, the rows the scope admits for
+  them are visible, *added to* their `selfAccess` rows. This is the one place in the
+  schema where a declaration widens what a caller sees, so it is opt-in per scope and
+  named for what it does. A plain scope keeps its 2.x meaning: an ordinary filter whose
+  value comes from the request.
+
+Binding and granting come together because a granting scope whose value the request
+supplied would let any caller name someone else's id and read their projects. That is
+exactly the hole this release closes.
+
+**`param` on `selfAccess`.** A role holder sees every row. That is right for a
+manager's tenant-wide view and wrong for the same manager's "my time" page, which needs
+their own rows only. `param` is the request's way to ask for that. Like a granting
+scope, its value is ignored; the caller is always themselves. Without `param`, an
+application has to filter by the subject field with a plain param, which means the
+client sends its own id. That is the pattern that failed.
+
+**`caller` in a stateView scenario.** Access depends on who is asking, and until now a
+scenario could not say who that was, so no scenario could show that a staff member sees
+only their own rows. `caller.subjectId` is the subject id the runtime would resolve, and
+`caller.role` is the role it would check against `requiredRole`. Leaving `caller` out
+reads as a role holder, which is what every existing scenario meant.
+
+**The rule, in one place.**
+1. Unauthenticated callers are refused, as before.
+2. A caller holding `requiredRole` sees every row. Plain params, filters, `selfAccess.param`
+   and granting scopes (bound to them) narrow.
+3. Any other caller, if the read model declares `selfAccess` or a granting scope, sees
+   the union of:
+   - rows whose `subjectField` is their subject id;
+   - for each granting scope, rows whose `filterLocalField` is among the `selectField`
+     values of `via.readModelId` rows matching them.
+
+   Params narrow within that union.
+4. Otherwise they are refused (403), as in 2.7.0.
+
+A caller whose subject id cannot be resolved gets an empty result under rule 3, for the
+reason 3.2.0 gives. That is different from a runtime that has no way to resolve subject
+ids at all (a host that never wired it). There the rule cannot be applied, and the
+runtime must refuse, not serve rows unscoped.
+
+**Why not reuse `requiredOwnership` or invent "scope roles".** `requiredOwnership` is a
+command-side check on one aggregate instance. Here the question is which rows of a list
+are visible. A per-scope role list ("a PM may see these") would need a PM role, and
+here PM is an assignment, not a role. Who manages a project is data, so the grant is a
+join on data, which is what a scope already is.

@@ -10,7 +10,7 @@
     "eventModelingSchemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "default": "3.7.1"
+      "default": "3.8.0"
     },
     "id": { "$ref": "#/$defs/id" },
     "name": { "type": "string", "minLength": 1 },
@@ -355,7 +355,8 @@
             "filterLocalField": { "type": "string", "minLength": 1 }
           },
           "additionalProperties": false
-        }
+        },
+        "grantsAccess": { "type": "boolean", "default": false }
       },
       "additionalProperties": false
     },
@@ -449,7 +450,8 @@
       "required": ["subjectField"],
       "properties": {
         "subjectField": { "type": "string", "minLength": 1 },
-        "via": { "$ref": "#/$defs/ownershipVia" }
+        "via": { "$ref": "#/$defs/ownershipVia" },
+        "param": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
@@ -645,7 +647,18 @@
       "properties": {
         "readModelId": { "$ref": "#/$defs/id" },
         "queryParams": { "type": "object" },
-        "asOf": { "type": "string", "format": "date" }
+        "asOf": { "type": "string", "format": "date" },
+        "caller": { "$ref": "#/$defs/scenarioCaller" }
+      },
+      "additionalProperties": false
+    },
+
+    "scenarioCaller": {
+      "type": "object",
+      "required": ["subjectId"],
+      "properties": {
+        "subjectId": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
