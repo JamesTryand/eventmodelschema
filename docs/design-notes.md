@@ -1521,7 +1521,9 @@ harness that runs the generated decider reported every such scenario as a failur
 and `all`, a list of conditions; it refuses when every condition holds. A condition reads
 one field, either from the aggregate's own state (`state`) or from the command
 (`command`), and applies one operator: `is` (`set`/`notSet`), `equals`/`notEquals`
-(against a literal or another field) or `contains` (a literal in a list).
+(against a literal or another field) or `contains` (a list holds a literal or another
+field's value: "this invoice already has a number" is the account's list of numbered
+invoices containing the command's invoice id).
 
 **Why only these.** The rules a decider can legitimately decide are about its own stream
 and the command in front of it. The operators cover the guards seen so far: a field set

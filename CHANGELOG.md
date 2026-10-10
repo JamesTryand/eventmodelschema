@@ -14,7 +14,8 @@ See `docs/design-notes.md` for the full rationale behind each change.
   its own events) or `command` (a field of the command). It applies one operator:
   - `is`: `set` or `notSet`;
   - `equals` or `notEquals`: a literal, or `{ "state" | "command": field }`;
-  - `contains`: a literal in a list field.
+  - `contains`: a list field holds a literal, or the value of another field (so a
+    stream can refuse an id it has already recorded).
 - Rules see only the aggregate's own stream and the command. A rule that needs another
   aggregate's state belongs in a process manager or a stream that owns it, never in a
   read model on the write path.
