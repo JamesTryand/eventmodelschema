@@ -3,6 +3,29 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.10.0
+
+**Additive (non-breaking):**
+- `command` gains `refuseWhen`: rules that refuse the command. Each rule has a `message`
+  and `all`, a list of conditions that must all hold for it to refuse. Rules are checked
+  in order, after the create and exists checks. The first rule that holds refuses the
+  command with its message. A scenario of kind `error` names that message.
+- A condition reads one field: `state` (a field of the aggregate's state, folded from
+  its own events) or `command` (a field of the command). It applies one operator:
+  - `is`: `set` or `notSet`;
+  - `equals` or `notEquals`: a literal, or `{ "state" | "command": field }`;
+  - `contains`: a literal in a list field.
+- Rules see only the aggregate's own stream and the command. A rule that needs another
+  aggregate's state belongs in a process manager or a stream that owns it, never in a
+  read model on the write path.
+- **Generators must refuse what they can't apply.** A runtime that cannot generate a
+  declared refusal must refuse to generate, never drop it.
+- New example `examples/refusals.json`: an entry claimed by one invoice at a time, and
+  frozen while claimed. The other examples are bumped.
+- Raised by `project/timesheets` (decision D29, 2026-10-10). Every guard of this kind was
+  hand-written, so the scenario harness (which runs the generated decider) reported
+  them all as failures.
+
 ## 3.9.0
 
 **Additive (non-breaking):**

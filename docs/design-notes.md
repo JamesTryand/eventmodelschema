@@ -1508,3 +1508,39 @@ events remove its rows, just as `builtFromEventIds` says which events build them
 **Not covered.** A delete keyed by a payload field rather than the stream id, such as
 removing every row for a project when the project is deleted, has no use case yet. It
 would follow `count`'s `rowKeyField` if it ever does.
+
+## v3.10.0: `refuseWhen` — a command's refusals, declared
+
+**Problem.** A command's business rules were invisible to the model. "A locked entry
+can't be updated", "an entry on one invoice can't be claimed by another": each was a
+hand-written guard in the decider. Generators couldn't produce them, and a scenario
+harness that runs the generated decider reported every such scenario as a failure. In
+`project/timesheets` that was three of eight known failures, with more to come (D29).
+
+**Shape.** `command.refuseWhen` is an ordered list of rules. Each rule has a `message`
+and `all`, a list of conditions; it refuses when every condition holds. A condition reads
+one field, either from the aggregate's own state (`state`) or from the command
+(`command`), and applies one operator: `is` (`set`/`notSet`), `equals`/`notEquals`
+(against a literal or another field) or `contains` (a literal in a list).
+
+**Why only these.** The rules a decider can legitimately decide are about its own stream
+and the command in front of it. The operators cover the guards seen so far: a field set
+or not (locked, claimed), a field matching another (claimed by *this* invoice), a value
+in a list (an entry type). Anything that needs another aggregate's state is out of
+reach by design: it belongs in a process manager or a stream that owns it, never in a
+read model on the write path. Arithmetic (next number in a sequence) stays in hand-written
+decide code.
+
+**State fields.** `state` names a field of the aggregate's state as generators already
+build it: the union of its events' fields, each taking the value of the latest event
+that carries it. So a rule can only see what the aggregate's own events record. To
+clear a field (release a claim), an event must carry it.
+
+**Order and messages.** Rules run after the create and exists checks, in order, and the
+first that holds wins. Its message is the refusal; an `error` scenario names it, and a
+harness should compare the two (timesheets audit T2 found scenarios passing on an
+unrelated refusal).
+
+**Generators** refuse a rule they can't apply, as with every other declaration, and
+check that each named field exists: a `state` field among the aggregate's events, a
+`command` field among the command's.
