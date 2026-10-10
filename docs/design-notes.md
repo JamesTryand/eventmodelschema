@@ -1546,3 +1546,10 @@ unrelated refusal).
 **Generators** refuse a rule they can't apply, as with every other declaration, and
 check that each named field exists: a `state` field among the aggregate's events, a
 `command` field among the command's.
+
+**Who and when, in a scenario.** A command scenario's `when` may name an `actor` and an `at`
+time. Generated stand-in deciders ignore them, but a harness that runs a host's own
+deciders needs them: those deciders stamp the actor and the clock onto events, and a
+scenario that checks values (the amounts on an invoice, who staged it) must be able to say
+what they were. Raised with `refuseWhen` by timesheets (D30: worked examples that run
+against the real arithmetic).

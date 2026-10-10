@@ -21,6 +21,9 @@ See `docs/design-notes.md` for the full rationale behind each change.
   read model on the write path.
 - **Generators must refuse what they can't apply.** A runtime that cannot generate a
   declared refusal must refuse to generate, never drop it.
+- A command scenario's `when` may name its `actor` and the time it happens (`at`), for a
+  harness that runs a host's own deciders: they record who and when on events, so a
+  worked example that checks values has to fix both.
 - New example `examples/refusals.json`: an entry claimed by one invoice at a time, and
   frozen while claimed. The other examples are bumped.
 - Raised by `project/timesheets` (decision D29, 2026-10-10). Every guard of this kind was
