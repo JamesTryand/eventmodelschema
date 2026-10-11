@@ -1612,3 +1612,32 @@ unchanged. A list-form alternative still means "condition unknown".
   that is neither `"hand"` nor a non-empty list; a group without `all`, or with an empty one; an unknown operator in
   a condition; a `set` that isn't an object of objects, or whose value is a list; an unknown property; an
   alternative without `eventIds`.
+
+## v3.13.0: repeated events in an outcome
+
+**Problem.** `project/timesheets` (D30.20) releases a payroll period: one decision records the release and pays
+each staff member what they are owed. The payments must be appended with the release, atomically, or a period
+could be released without its payments. Each person's pay is PII, encrypted under that person's key, and a PII
+field has one subject, so the payments can't be one list on one event: each is its own event. 3.12.0's alternatives
+list each event once, so "the release, then a payment per person" had no shape.
+
+**`repeated`.** An alternative lists the events that occur zero or more times, one per item, each in its place in
+`eventIds`' order. Zero, so a release that owes nobody anything is the same alternative, not a second one with a
+condition. How many there are and what each carries is worked out from state (here, every entry's current pay
+less what each person has been paid), which is calculation, so it is hand-written: a generator emits a hook that
+returns the items. A harness running a generated decider reports such scenarios as chosen by hand, and accepts the
+expected events when they fit the alternative, with each repeated event appearing any number of times in place.
+
+**Why not a list field with a subject per item.** It would need a subject per list item in the encryption layer,
+the mapping and erasure, and erasing one person would rewrite an event that holds everyone's pay. One event per
+person keeps one subject per value, which every layer already handles.
+
+**Replay is not affected,** for the reason 3.12.0 gives: the events are recorded, and replay folds them.
+
+**Compatibility.** Optional, on the object form only; a 3.12.0 document validates unchanged. That each repeated
+event is one of `eventIds` is not structural, so generators check it (as they check `set`'s event ids).
+
+**Concretely:**
+- `eventOutcome` gains `repeated` (unique ids, at least one).
+- Verified: every example validates, including the new `examples/repeated-outcomes.json`. Rejected: `repeated`
+  that is empty, not a list, holds a duplicate or a non-id, or appears on the list form.

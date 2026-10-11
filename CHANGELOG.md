@@ -3,6 +3,15 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.13.0
+
+**Additive (non-breaking):**
+- An alternative in `outcomes` (the object form) may list `repeated` events: events that occur **zero or more
+  times**, one per item, each in its place in `eventIds`' order. Each must be one of the alternative's `eventIds`.
+- How many, and their values, are hand-written: a generator emits a hook for them, as for `when: "hand"`.
+- The use: one decision that records something for each of several people, where each person's data must be its
+  own event (a PII value is encrypted under one subject's key). New example `examples/repeated-outcomes.json`.
+
 ## 3.12.0
 
 **Additive (non-breaking):**

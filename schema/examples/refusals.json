@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.12.0",
+  "eventModelingSchemaVersion": "3.13.0",
   "id": "refusals-example",
   "name": "Refusals Example",
   "description": "Declared refusals (3.10.0; numeric comparisons, 3.11.0): a time entry is claimed by one invoice at a time, and cannot be changed while it is claimed. Each rule reads the entry's own state (folded from its own events) and the command, never a read model.",
