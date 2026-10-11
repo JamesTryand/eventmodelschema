@@ -1641,3 +1641,28 @@ event is one of `eventIds` is not structural, so generators check it (as they ch
 - `eventOutcome` gains `repeated` (unique ids, at least one).
 - Verified: every example validates, including the new `examples/repeated-outcomes.json`. Rejected: `repeated`
   that is empty, not a list, holds a duplicate or a non-id, or appears on the list form.
+
+## v3.14.0: rows keyed by a field of the event
+
+**Problem.** A read model's row has always been a stream: the events of one stream merge into one row. That
+breaks where one stream holds many rows' events. `project/timesheets` (D30.20) keeps its payroll on one stream,
+so that releases can be contiguous and never pay the same work twice, and each release records a payment per
+staff member (3.13.0's repeated events). Shown per period and per person, those are many rows, all from one
+stream.
+
+**`rowKeyField`.** A read model names the field of its events that names the row, in place of the stream. Every
+event in `builtFromEventIds` and `removedByEventIds` must carry it, so the row an event updates (or removes) is
+always known. `count`/`sum` derivations already key their target row by a field of the event (their own
+`rowKeyField`, for events on other streams); this is the same idea for the row's own events.
+
+**Why not one stream per row.** Here the invariant decides: the stream is the unit of consistency. Splitting the
+payroll into a stream per period would lose the check that periods are contiguous and that nothing is paid twice,
+which needs one stream's state. The read side should follow the data, not dictate the streams.
+
+**Compatibility.** Optional; a 3.13.0 document validates unchanged and means what it meant. That the events carry
+the field is not structural, so generators check it.
+
+**Concretely:**
+- `readModel` gains `rowKeyField` (a non-empty string).
+- Verified: every example validates, including `examples/repeated-outcomes.json`'s new `payments` read model.
+  Rejected: an empty or non-string `rowKeyField`.

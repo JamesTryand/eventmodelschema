@@ -3,6 +3,15 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.14.0
+
+**Additive (non-breaking):**
+- `readModel.rowKeyField`: the field of each event a read model is built from (and removed by) that names the row
+  it updates, in place of the event's stream. Without it, a row is a stream, as before.
+- The use: one stream that holds many rows' events, such as a ledger recording a payment per person per run. Every
+  one of those events must carry the field. `examples/repeated-outcomes.json` gains a `payments` read model, one row
+  per payment.
+
 ## 3.13.0
 
 **Additive (non-breaking):**

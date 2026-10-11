@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.13.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `3.14.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -63,6 +63,8 @@ main additions are:
   (`when`, a declared condition or `"hand"`) and fix values on its events (`set`).
 - **3.13.0:** repeated events in an outcome (`repeated`): one decision can emit an event once per
   item, such as a payment per person paid.
+- **3.14.0:** `readModel.rowKeyField`: rows keyed by a field the events carry rather than by
+  their stream.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

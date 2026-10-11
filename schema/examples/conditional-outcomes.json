@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.13.0",
+  "eventModelingSchemaVersion": "3.14.0",
   "id": "conditional-outcomes-example",
   "name": "Conditional Outcomes Example",
   "description": "Conditional outcomes (3.12.0): one command emits one set of events or another, and the model says when. Logging more than 12 hours also flags the entry, by a declared rule. Submitting an expense also flags it when its converted amount is over the limit; converting is a calculation, so that condition is hand-written (`when: \"hand\"`).",
