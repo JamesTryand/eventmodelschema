@@ -3,6 +3,20 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.11.0
+
+**Additive (non-breaking):**
+- A `refuseWhen` condition gains four numeric operators: `lessThan`, `atMost`,
+  `greaterThan` and `atLeast`. Each compares the field with a number, or with the value of
+  another numeric `state` or `command` field.
+- A comparison with an unset value never holds. A rule that also refuses a missing value
+  says so with a separate `is: notSet` rule.
+- `examples/refusals.json` uses them: "hours must be positive" is `atMost: 0` (it was
+  `equals: 0`, which let negative hours through), and a new rule refuses more than 24.
+- Raised by `project/timesheets` D30 (F10-F12): a conversion rate must be more than 0, and
+  a VAT percentage from 0 to 100. As hand-written guards, the generated stand-ins couldn't
+  see them.
+
 ## 3.10.0
 
 **Additive (non-breaking):**

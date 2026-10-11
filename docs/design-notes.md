@@ -1553,3 +1553,23 @@ deciders needs them: those deciders stamp the actor and the clock onto events, a
 scenario that checks values (the amounts on an invoice, who staged it) must be able to say
 what they were. Raised with `refuseWhen` by timesheets (D30: worked examples that run
 against the real arithmetic).
+
+## v3.11.0: numeric comparisons in `refuseWhen`
+
+**Problem.** Some rules about a command are ranges: a conversion rate must be more than 0;
+a VAT percentage runs from 0 to 100; hours can't be negative. 3.10.0 had only `is`,
+`equals`, `notEquals` and `contains`. So these stayed hand-written, and a harness running
+the generated decider reported them as failures. Its own example worked around it with
+`equals: 0`, which refused 0 hours but let -2 through.
+
+**Shape.** Four operators, each taking a number or `{ "state" | "command": field }`:
+`lessThan`, `atMost`, `greaterThan` and `atLeast`. They are named for what they test, so a
+rule reads as the refusal it is: "hours `atMost` 0" refuses zero and negative hours.
+
+**Unset values.** A comparison with a missing or null value never holds, on either side.
+Whether a value may be missing is a separate rule (`is: notSet`, with its own message).
+Otherwise "no rate" and "a rate of 0" would share one message.
+
+**Types.** The field compared should be numeric (`decimal`, `integer`), and so should a
+field operand. Generators check this, as they check that each named field exists.
+
