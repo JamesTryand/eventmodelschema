@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.11.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `3.12.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -59,6 +59,8 @@ main additions are:
   own state and the command's fields.
 - **3.11.0:** numeric comparisons in a refusal condition (`lessThan`, `atMost`,
   `greaterThan`, `atLeast`).
+- **3.12.0:** conditional outcomes: an alternative in `outcomes` can say when it applies
+  (`when`, a declared condition or `"hand"`) and fix values on its events (`set`).
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

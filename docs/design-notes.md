@@ -1573,3 +1573,42 @@ Otherwise "no rate" and "a rate of 0" would share one message.
 **Types.** The field compared should be numeric (`decimal`, `integer`), and so should a
 field operand. Generators check this, as they check that each named field exists.
 
+## v3.12.0: conditional outcomes
+
+**Problem.** 3.3.0's `outcomes` lists the alternatives a command can emit, but not which one applies. A decider is
+`decide(command, state) -> events`, and the choice between alternatives is part of it; with the choice missing, a
+generator can't write the decider and a harness running a generated one can't check it. Generators refused
+`outcomes` as a result. `project/timesheets` (D30.18) needs one: an entry whose hours are paid at no cost is logged
+and flagged in the same decision, so neither exists without the other.
+
+**Replay is not affected.** Replay folds the stored events through `evolve`; it never runs `decide` again. Both
+events are recorded, so the state after replay is the same every time. What the decision needs is to be
+deterministic: the same command and state give the same events. Hence the ordering rule: alternatives are tried
+in order, the first whose `when` holds wins, and the last has no `when`, so there is always exactly one answer.
+
+**Declared conditions reuse `refuseWhen`'s.** A `when` is a list of `{ "all": [...] }` groups, any of which may
+hold: the same comparisons, over the aggregate's own state and the command's fields, with no arithmetic. A refusal
+and an outcome are both branches of `decide`; one ends in an error, the other picks the events. No new expression
+language.
+
+**`"hand"`: where the model stops.** The schema describes data and its flow; calculation is written by hand. Some
+conditions are properties of a calculation: "paid at no cost" is "the pay works out at 0", and pay is a price
+times hours with a fallback rule. Written as declared conditions, it would copy the calculation into the model,
+and the two could drift. `when: "hand"` says the choice exists and that code makes it. A generator emits a hook
+the code must fill (an error if it doesn't, not a comment), and a harness running the generated decider reports
+scenarios that depend on that choice separately: it can check that the events are one of the declared alternatives
+and that their fields match, but not that the choice was right. The real decider is checked by the host.
+
+**`set`.** An alternative can fix values on its events: the flag's `reason` is "no-cost" because of which
+alternative applied, not because of anything on the command. Values only, no expressions.
+
+**Compatibility.** An alternative is either 3.3.0's list of ids or the new object, so a 3.11.0 document validates
+unchanged. A list-form alternative still means "condition unknown".
+
+**Concretely:**
+- New `$def`s `eventOutcome` (`eventIds`, `description`, `when`, `set`) and `outcomeCondition` (`all`).
+  `eventOutcomes` items are `oneOf` the list form and `eventOutcome`.
+- Verified: every example validates, including the new `examples/conditional-outcomes.json`. Rejected: a `when`
+  that is neither `"hand"` nor a non-empty list; a group without `all`, or with an empty one; an unknown operator in
+  a condition; a `set` that isn't an object of objects, or whose value is a list; an unknown property; an
+  alternative without `eventIds`.

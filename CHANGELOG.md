@@ -3,6 +3,28 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.12.0
+
+**Additive (non-breaking):**
+- An alternative in `outcomes` may be an object, `{ "eventIds", "description"?, "when"?, "set"? }`,
+  as well as a list of ids (3.3.0's form, unchanged in meaning).
+- `when` says when the alternative applies:
+  - a list of `{ "all": [conditions] }` groups, with the conditions of `refuseWhen`: it holds when any group
+    holds;
+  - or `"hand"`: the condition is hand-written, because it depends on a calculation the model doesn't describe.
+    A generator emits a hook for it rather than a rule.
+- When any alternative has a `when`, the alternatives are tried in order after the command's refusals; the first
+  whose `when` holds is the result, and the last has none (the default). So the same command and state always
+  give the same events.
+- `set` fixes field values on an alternative's events, by event id then field (`{ "entry-flagged": { "reason":
+  "long-day" } }`).
+- New example `examples/conditional-outcomes.json`, with a declared condition and a hand-written one.
+- Raised by `project/timesheets` D30.18 (F15): an entry whose hours are paid at no cost is logged and flagged in
+  one decision. 3.3.0 could list the two alternatives but not say which applies, so generators refused it.
+
+**Not enforced here:** that the last alternative has no `when`, that the ids in `eventIds` and `set` belong to
+the slice, and that each field named exists. Reference checks, for a generator or a lint.
+
 ## 3.11.0
 
 **Additive (non-breaking):**
