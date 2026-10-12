@@ -3,6 +3,18 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.15.0
+
+**Additive (non-breaking):**
+- `requiredOwnership.stateField`: the field of the aggregate's own state (folded from its own events) that names
+  the owner. The aggregate's decision compares it with the command's actor and refuses anyone else, as forbidden
+  rather than invalid, with `message` if given. No read model is consulted, so the first command after a create is
+  never refused while a projection catches up, and a change of owner takes effect at once.
+- `requiredOwnership` is now either `via` (a read model, as before, with optional `bypassRoles`) or `stateField`
+  (with optional `message`), never both. `bypassRoles` stays with `via`: a decision knows its actor, not their
+  role.
+- `examples/state-ownership.json`: an expense changed only by its own staff member.
+
 ## 3.14.0
 
 **Additive (non-breaking):**

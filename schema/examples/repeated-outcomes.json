@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.14.0",
+  "eventModelingSchemaVersion": "3.15.0",
   "id": "repeated-outcomes-example",
   "name": "Repeated Outcomes Example",
   "description": "Repeated events in an outcome (3.13.0): releasing a pay run records the release and one payment per person paid, in one decision. Each payment is its own event, so each person's pay is encrypted under their own key. How many payments, and how much each, is worked out by hand from the run's own state. Each payment is a row of its own in the payments read model, keyed by the payment's id rather than the pay run's stream (3.14.0 rowKeyField).",

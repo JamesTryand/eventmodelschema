@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "3.14.0",
+  "eventModelingSchemaVersion": "3.15.0",
   "id": "read-access-example",
   "name": "Read Access Example",
   "description": "Who may read which rows of a read model (3.8.0). A manager holds requiredRole and sees every time entry. Anyone else sees their own entries (selfAccess) and the entries on projects they manage (a scope with grantsAccess), and nothing else. The selfAccess param lets a manager ask for only their own entries too. Each stateView scenario names its caller.",

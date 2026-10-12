@@ -1666,3 +1666,30 @@ the field is not structural, so generators check it.
 - `readModel` gains `rowKeyField` (a non-empty string).
 - Verified: every example validates, including `examples/repeated-outcomes.json`'s new `payments` read model.
   Rejected: an empty or non-string `rowKeyField`.
+
+## v3.15.0: ownership decided by the aggregate
+
+**Problem.** `requiredOwnership` (2.5.0) names a read model to look the owner up in, so ownership is checked
+before the command, from a projection. That lags. `project/timesheets` saw both sides of it (its paradigm audit,
+W5): the first edit after logging an entry was refused because the entry's row wasn't projected yet, and after a
+delete was projected the owner got "not yours" instead of "deleted". A rule that must hold belongs in the stream
+that owns it, and the entry's own stream knows whose it is.
+
+**`stateField`.** The field of the aggregate's own state that names the owner. The aggregate's decision compares it
+with the command's actor and refuses anyone else. The refusal is marked forbidden, so a host can answer it as
+such (403) rather than as an invalid command; `message` is its text.
+
+**Why `bypassRoles` stays with `via`.** A decision sees the command and its own stream: the actor, not their role.
+A role that may act on anyone's behalf is a role check before the command, which `via` (or `requiredRole`) already
+covers.
+
+**Which actor.** The command's actor, as the host resolves it. A host that lets one person act as another
+(impersonation) passes the effective actor, so the person acted for owns what they own.
+
+**Compatibility.** `via` documents validate unchanged and mean what they meant. `via` and `stateField` are
+alternatives (exactly one); `message` goes with `stateField`.
+
+**Concretely:**
+- `commandOwnership` gains `stateField` and `message`; `via` is no longer required, but one of the two is.
+- Verified: every example validates, including the new `examples/state-ownership.json`. Rejected: both `via` and
+  `stateField`; `stateField` with `bypassRoles`; `message` with `via`; neither; an empty `stateField`.
