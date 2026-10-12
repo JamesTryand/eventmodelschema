@@ -86,6 +86,12 @@
           "given": [{ "eventId": "expense-logged", "data": { "expenseId": "x1", "staffId": "s1", "value": 12.5 } }],
           "when": { "commandId": "update-expense", "data": { "value": 0 }, "actor": "s2" },
           "then": { "error": { "message": "only this expense's own staff member may change it" } }
+        },
+        {
+          "id": "no-such-expense", "name": "An expense that doesn't exist is not anyone's: it doesn't exist", "kind": "error",
+          "given": [],
+          "when": { "commandId": "update-expense", "data": { "value": 14 }, "actor": "s2" },
+          "then": { "error": { "message": "expense does not exist" } }
         }
       ]
     }
