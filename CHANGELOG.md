@@ -3,6 +3,15 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.17.0
+
+**Additive (non-breaking):**
+- `readModel.projection`: `"generated"` (the default) or `"hand"`, a read model built by a hand-written projection
+  because no declaration expresses it (a join across streams, say). A generator still generates its query route; a
+  check running only generated code reports its view scenarios as needing a host (HAND), and a host check runs the
+  host's own projection against them.
+- `examples/hand-projection.json`: orders placed after their day's dispatch closed.
+
 ## 3.16.0
 
 **Additive (non-breaking):**

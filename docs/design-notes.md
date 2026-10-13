@@ -1730,3 +1730,24 @@ event needs to carry a status for the read model to show one; `toggle` is the 0/
   or with an object value; `sumOfItems` without `subfield`.
 - What a generator checks beyond the shape (the list and its subfield exist; `sumOfItems` only with
   `rowsPerListItem`; not with `rowKeyField`) is the generator's.
+
+## v3.17.0: a read model built by hand
+
+**Problem.** Some read models are joins across streams that no declaration expresses: `project/timesheets`' late
+entries (an entry, its project's client and cadence, and whether that client's period has been invoiced) are
+recomputed whenever any of those changes. Their projection is hand-written. Their view scenarios still say what the
+read model must show, but a check that runs generated projections can only fail them, so they sat as known failures
+in both checks, proving nothing and hiding any new failure among them.
+
+**`projection: "hand"`.** Says who builds the rows. A generator keeps generating the query route (access rules, the
+table's columns), so a host merges only its projection. A check that runs only generated code reports the read
+model's view scenarios as needing a host (HAND, as 3.12.0's `when: "hand"` outcomes are); a host check runs the host's
+own projection, so the scenarios prove the real code.
+
+**Why not drop the scenarios.** They are the read model's specification; with a host check they are tests of the
+hand code like any other.
+
+**Compatibility.** Additive; absent means `"generated"`, as before.
+
+**Concretely:** `readModel.projection`, enum `generated` / `hand`, default `generated`. Verified: every example
+validates, including the new `examples/hand-projection.json`, which fails against 3.16.0; any other value is refused.
