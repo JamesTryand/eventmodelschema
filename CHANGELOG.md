@@ -3,6 +3,20 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 3.16.0
+
+**Additive (non-breaking):**
+- `readModel.rowsPerListItem` (`listField`, `groupBy`): one row per group of a stream's list items, in place of one
+  row per stream. Each carrying event replaces the stream's list; an item's `groupBy` subfield names its group; a
+  row is keyed `<stream>|<group>` and holds the group's items, the group's value, and the stream's other fields.
+  An item without the subfield is in no row. A `removedByEventIds` event removes all of the stream's rows. Not with
+  `rowKeyField`.
+- `derivation.kind: "sumOfItems"` (`subfield`), with `rowsPerListItem` only: the sum of a subfield over the row's
+  items, absent unless every item carries it.
+- `derivation.kind: "byEvent"` (`values`): a literal per event, such as a status (`toggle` is the 0/1 case). An
+  event not named leaves the field as it was.
+- `examples/rows-per-list-item.json`: an invoice's parts per project.
+
 ## 3.15.0
 
 **Additive (non-breaking):**

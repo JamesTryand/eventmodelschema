@@ -1693,3 +1693,40 @@ alternatives (exactly one); `message` goes with `stateField`.
 - `commandOwnership` gains `stateField` and `message`; `via` is no longer required, but one of the two is.
 - Verified: every example validates, including the new `examples/state-ownership.json`. Rejected: both `via` and
   `stateField`; `stateField` with `bypassRoles`; `message` with `via`; neither; an empty `stateField`.
+
+## v3.16.0: rows per list item
+
+**Problem.** A read model's row is a stream (or, since 3.14.0, a field its events carry). `project/timesheets` (D33)
+shows a client's invoice to each project manager as their project's part: that project's lines, their subtotal, and
+the invoice's status and number. The invoice is one stream whose events carry its lines, each naming its project;
+the rows are groups of those lines. No declaration said that, so the read model was a hand-written projection and its
+view scenarios couldn't be checked against generated code.
+
+**`rowsPerListItem`.** `listField` is a list the read model's events carry; each carrying event replaces the
+stream's list (the events carry the whole list, as a snapshot). `groupBy` is the item subfield naming an item's
+group. A row is keyed `<stream>|<group>`; its `groupBy` field is the group's value, its `listField` the group's items,
+and every other plain field is copied from the stream's events, as a one-row-per-stream read model's would be. The
+rows are rebuilt from the stream's facts after each event, so replay is deterministic.
+
+**Why an item without the subfield is in no row.** A line that belongs to no group (an invoice's currency
+conversion margin) must not fall into one. Falling back to a stream-level value was considered and refused: the
+stream-level field can be set by any event (a claim names the claimed entry's project), so the fallback would pick an
+arbitrary group.
+
+**`sumOfItems`.** The sum of a subfield over the row's items, absent unless every item carries it. Lines in different
+currencies are never added: a draft's lines carry no converted amount, so a draft's part has no subtotal, without
+the read model naming a status.
+
+**`byEvent`.** A literal per event (`values`, event id to value), such as `staged` / `finalising` / `finalised`. No
+event needs to carry a status for the read model to show one; `toggle` is the 0/1 case.
+
+**Compatibility.** Additive. Without `rowsPerListItem` a row is a stream, as before.
+
+**Concretely:**
+- `readModel.rowsPerListItem` (`listField`, `groupBy`, both required, nothing else); `fieldDerivationKind` gains
+  `byEvent` (`values`: event id to string, number or boolean, at least one) and `sumOfItems` (`subfield`).
+- Verified: every example validates, including the new `examples/rows-per-list-item.json`, which fails against
+  3.15.0. Rejected: `rowsPerListItem` without `groupBy` or with another key; `byEvent` without `values`, with `{}`,
+  or with an object value; `sumOfItems` without `subfield`.
+- What a generator checks beyond the shape (the list and its subfield exist; `sumOfItems` only with
+  `rowsPerListItem`; not with `rowKeyField`) is the generator's.
