@@ -3,6 +3,11 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## Unreleased (documentation only)
+
+- **Clarified:** a command's authorization declarations (`requiredRole`, `fieldGatedRole`, `requiredOwnership`,
+  `scope`) combine: every one declared must hold. See `docs/design-notes.md`. No schema change.
+
 ## 3.17.0
 
 **Additive (non-breaking):**

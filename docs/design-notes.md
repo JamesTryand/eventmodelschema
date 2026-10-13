@@ -1751,3 +1751,15 @@ hand code like any other.
 
 **Concretely:** `readModel.projection`, enum `generated` / `hand`, default `generated`. Verified: every example
 validates, including the new `examples/hand-projection.json`, which fails against 3.16.0; any other value is refused.
+
+
+## Clarification (no version change): a command's authorization declarations combine
+
+A command may declare more than one of `requiredRole`, `fieldGatedRole`, `requiredOwnership` and `scope`. Each says
+who may run it, so **every one declared must hold**: a role and ownership means a holder of the role who owns the
+target; a role and a scope, a holder of the role within the scope (or with a bypass role). A `fieldGatedRole` whose
+condition doesn't apply adds nothing. Any other reading would let one declaration grant what another refuses.
+
+Found 2026-10-13: dotnetcqrs's generated evaluator returned as soon as it found `requiredRole`, so the others on
+the same command were never checked (timesheets' paradigm audit, S2; fixed in dotnetcqrs `6649745`). No schema
+change: documents mean what they meant; this note says it.
