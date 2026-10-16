@@ -28,7 +28,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `3.17.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `4.0.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -71,6 +71,8 @@ main additions are:
   `sumOfItems`), and `byEvent`, a field's literal chosen by which event fired.
 - **3.17.0:** `readModel.projection: "hand"`: a read model built by a hand-written projection, whose
   view scenarios a host check proves against the host's own code.
+- **4.0.0 (breaking):** `scope.memberOfVia.actorField`: the document names the field holding a member's
+  actor id, rather than leaving it to a generator's convention.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

@@ -94,8 +94,7 @@ a value over leaving authors to overload an ill-fitting one.
   ("show UI-only interaction by just showing one screen after the other — no
   commands, events"). It touches none of the 5 elements this schema models — it's
   arguably `eventmodeling-tooling`'s prototyping-GUI concern, not a *document*
-  schema concept. Tracked as a deliberate exclusion in the root `NEEDS.md`, not an
-  oversight.
+  schema concept. A deliberate exclusion, not an oversight.
 - **Referential-integrity checking and anti-pattern detection tooling.** Both need a
   companion script/linter operating on a parsed document, not schema keywords.
 - **Multi-file `$ref` splitting.** Single file is plenty at this size; revisit if
@@ -221,7 +220,7 @@ example leaves those untagged deliberately.
 
 ## v2 M3: multi-file composition layer
 
-A single document is fine at example scale but doesn't stay so as a real model
+A single document is fine at example scale but doesn't stay so as a working model
 grows — and Nebulit's per-slice-file approach (each slice a standalone file) was
 the direct comparison point that started this. Their approach duplicates full
 element definitions into every slice that uses them, because they split by slice
@@ -270,23 +269,21 @@ same join/split seam. Scoped as a separate follow-on (M5), not core v2 — expor
 would need to duplicate elements per-slice per their model (lossy in guarantees,
 not data), and importing needs a reconciliation pass for any inconsistent
 duplicates found in a real Nebulit document.
-example deliberately leaves those untagged to demonstrate that.
 
 ## v2.2.0: derived read-model fields, stream-ending events, scoped queries
 
-Came from real codegen use (`platform/codegen-handwrite-gaps`, working the
-timesheets model through `dotnetcqrs`/`pocketcqrs`), not from re-reading the
-methodology cold. A generic single-event field-merge — copy whichever payload keys
-share a name with a read-model column, fold every event as "this stream now
-exists" — covers most of a real model but breaks on three shapes that recur
+Came from using code generators (`dotnetcqrs`/`pocketcqrs`) on an application's
+model, not from re-reading the methodology cold. A generic single-event field-merge —
+copy whichever payload keys share a name with a read-model column, fold every event
+as "this stream now exists" — covers most of a model but breaks on three shapes that recur
 often enough to be worth naming rather than hand-writing every time:
 
 - **A boolean that toggles between two named events** (e.g. an SSO-enabled flag
   set by one event, cleared by another) — the generic copy never fires, because
   neither event's payload literally carries that field.
 - **A per-row count/sum rolled up from a *different* stream** (e.g. how many
-  staff are currently assigned to a project — the assignment events live on the
-  assignment stream, not the project's) — a single-stream field-merge has no
+  agents are currently assigned to a team — the assignment events live on the
+  assignment stream, not the team's) — a single-stream field-merge has no
   `GROUP BY` concept at all.
 - **A stream that can be "created" more than once across its lifetime** (assign,
   unassign, re-assign) — the generic fold only ever sets a stream's existence to
@@ -294,8 +291,8 @@ often enough to be worth naming rather than hand-writing every time:
   cause as the two above (fold-only-sets), just showing up in the write-side
   decider's existence guard rather than a read-side projection.
 - **A query scoped through a relationship the read model doesn't itself carry**
-  (a Project Manager's view of flagged entries, scoped to the projects they
-  manage — a fact that lives in a *different* read model). Not a fold problem,
+  (a team lead's view of escalated tickets, scoped to the teams they lead — a
+  fact that lives in a *different* read model). Not a fold problem,
   but the same underlying gap: nothing in the document states the relationship a
   correct query needs.
 
@@ -348,22 +345,21 @@ declaration should not depend on how thoroughly the model happens to be tested.
 
 ## v2.3.0: grouped-rollup derivation (`groupBy`)
 
-Came from the same real-model pressure as v2.2.0 (`platform/eventmodeling-verify-gaps`,
-working `project/timesheets`'s `payroll-periods` read model through `dotnetcqrs`/
-`pocketcqrs`): `field.derivation`'s three v2.2.0 kinds (`toggle`/`count`/`sum`) only ever
-produce a single scalar value per read-model row. `payroll-periods.staffTotals` needs a
-genuinely different shape — a *list* of `{staffId, outOfHoursHours, payrollAmount}` rows
-nested inside each payroll-period row, one row per distinct staff member who logged
-out-of-hours time in that period. This is the second time a grouped-rollup shape has
+Came from the same pressure as v2.2.0: `field.derivation`'s three v2.2.0 kinds
+(`toggle`/`count`/`sum`) only ever produce a single scalar value per read-model row. A
+grouped rollup needs a genuinely different shape. For example, a `sales-periods` read
+model whose `customerTotals` field is a *list* of `{customerId, discountedUnits,
+discountAmount}` rows nested inside each sales-period row, one row per distinct customer
+who placed discounted orders in that period. This is the second time a grouped-rollup shape has
 come up (the first, `count`/`sum`'s own `rowKeyField`, only covers "many independent
 top-level read-model rows keyed by X," not "one nested list inside a single row").
 
-**Design question this needed to resolve first** (flagged open since 2026-09-02,
-`NEEDS.md`): does the nested list-of-objects shape need a new `Field`-level concept, or
+**Design question this needed to resolve first** (flagged open since 2026-09-02):
+does the nested list-of-objects shape need a new `Field`-level concept, or
 does a single generalized `derivation.kind` value suffice? Resolved as the latter, for
 one reason: `field` already has everything the *shape* needs — `cardinality: "list"` +
 recursive `subfields` (added in v2, for typed nested objects generally) already
-describes "a field whose value is a list of `{staffId, outOfHoursHours, payrollAmount}`
+describes "a field whose value is a list of `{customerId, discountedUnits, discountAmount}`
 records." What was missing was only the *derivation* — how those rows and their values
 get computed — not the shape itself. So `groupBy` is a `fieldDerivation` kind like the
 other three, requiring only one new property (`groupByField`, the payload field whose
@@ -388,14 +384,14 @@ declared `subfields`, or that a nested subfield's own `addOnEventIds`/etc. actua
 resolve to real events — those stay structural-validity gaps by design, same as
 `onEventIds` always has been.
 
-**Deliberately narrow scope — what this does NOT solve.** `payroll-periods.staffTotals`
-in the real model also needs each contributing event correlated to the specific
-payroll-period row it belongs to (`time-entry-logged`'s `taskDate` falling within that
-row's own `periodStart`/`periodEnd`) and filtered to only entries where
-`outOfHoursHours` is non-zero. Both are deliberately **out of scope here** — the former
-is the still-undecided `dateRange` capability (`platform/eventmodeling-verify-gaps`
-Group C item 3, the bigger of that issue's two open design questions), and folding it
-into `groupBy` now would have pre-committed part of that separate decision. A document
+**Deliberately narrow scope — what this does NOT solve.** A field like
+`sales-periods.customerTotals` typically also needs each contributing event correlated to the specific
+sales-period row it belongs to (`order-placed`'s `orderDate` falling within that
+row's own `periodStart`/`periodEnd`) and filtered to only orders where
+`discountedUnits` is non-zero. Both are deliberately **out of scope here** — the former
+is the still-undecided `dateRange` capability (at the time, the bigger of two open
+design questions), and folding it into `groupBy` now would have pre-committed part of
+that separate decision. A document
 using `groupBy` alone gets the grouping/fold mechanism generated; row-scoping by date
 range and value-filtering the contributing events still need either a small hand-written
 wrapper or the future `dateRange` capability landing on top. Chosen deliberately (over
@@ -411,32 +407,30 @@ for grouped-rollup shapes that don't need date scoping at all.
 - No changes to `event`, `command`, `readModel`, or any other `$def`.
 - Additive; a 2.2.0 document validates unchanged against 2.3.0. Verified: `npm run
   validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest document
-  modeling `payroll-periods.staffTotals` with `groupBy` + nested `sum` subfields
+  modeling `sales-periods.customerTotals` with `groupBy` + nested `sum` subfields
   validates; two malformed variants (missing `groupByField`; `groupBy` on a field
   missing `cardinality`/`subfields`) are each rejected with a single clean error.
 
 ## v2.4.0: `readModel.filters` — single-field date-range query filtering
 
-The other half of the same `dateRange` gap `groupBy` (2.3.0) deliberately left out:
-`export-pm-slice`'s real scenario (`platform/eventmodeling-verify-gaps` Group C item 3,
-`project/timesheets`'s `time-entries` read model) needs its `taskDate` field range-tested
-against `last7Days`/`lastCalendarMonth`/a `custom` `from`/`to` pair — and at least two
-sibling export/report scenarios in the same model (`export-manager-slice`,
-`export-staff-slice`) need the identical shape. Grounded directly against the
-`dotnetcqrs` codebase (`platform/eventmodeling-verify-gaps`, this session) before
-designing, not assumed: `readModel.scopes` (2.2.0) has no production consumer today —
+The other half of the same `dateRange` gap `groupBy` (2.3.0) deliberately left out.
+Consider an export scenario (say `export-warehouse-slice`, against an `orders` read
+model) that needs its `orderDate` field range-tested against `last7Days`/
+`lastCalendarMonth`/a `custom` `from`/`to` pair; sibling export/report scenarios in the
+same model (`export-admin-slice`, `export-customer-slice`) need the identical shape.
+Checked against the `dotnetcqrs` codebase before designing, not assumed: `readModel.scopes` (2.2.0) has no production consumer today —
 only the verify harness's `SelectRowsAsync` reads it, to *simulate* what a real query
 gateway would do (`HarnessProgram.txt:206`'s own comment says so) — and that same harness
 currently skips any object-shaped `queryParams` value outright
 (`HarnessProgram.txt:190-195`), which is exactly the shape a `dateRange` param takes, so
-`export-pm-slice` fails today on unfiltered rows, not close-but-wrong filtering.
+such a scenario fails today on unfiltered rows, not close-but-wrong filtering.
 
 **Deliberately narrow, same move as `groupBy`.** A single-field WHERE-range filter with
-named presets only — explicitly NOT `staffTotals`-style cross-row/cross-stream
-correlation (`taskDate` falling inside a *different row's* `periodStart`/`periodEnd`).
-Stage 3a of the `groupBy` execution plan already proved that shape doesn't generalize
-under a schema-level derivation and had to be hand-written
-(`Payroll/PayrollPeriodsQuery.cs`) — `export-pm-slice`'s actual need is a plain
+named presets only — explicitly NOT `customerTotals`-style cross-row/cross-stream
+correlation (`orderDate` falling inside a *different row's* `periodStart`/`periodEnd`).
+Building `groupBy` had already shown that shape doesn't generalize under a schema-level
+derivation; it had to be hand-written as a query of its own — an export like this one
+actually needs a plain
 single-field range filter against one of the read model's own columns, a much smaller
 and more clearly reusable capability than the original "comparable to `groupBy`"
 estimate assumed.
@@ -452,15 +446,14 @@ in 2.1.0 and `fieldDerivationKind` gained `"groupBy"` in 2.3.0), not a design ch
 **Runtime value shape is a documented convention, not a schema constraint** — consistent
 with this schema's existing boundary (`data`/`queryParams`/`result` in scenarios stay
 untyped `object`, see "Structural validation vs. methodology validation," above).
-Confirmed directly against `project/timesheets`'s real model (`export-manager-slice`,
-`export-pm-slice`, `export-staff-slice` scenarios), which already uses this exact shape
-predating this schema change: a `queryParams` value for a `dateRange`-filtered param is
+The model that prompted this already used this exact shape in its export scenarios,
+before this schema change: a `queryParams` value for a `dateRange`-filtered param is
 `{ "kind": "<preset>" }` for a named preset, or `{ "kind": "custom", "from": "<ISO
 date>", "to": "<ISO date>" }` for the custom bound — `from`/`to` are fixed property
 names, not configurable per-filter, since there is exactly one bounded-range shape to
 express. `kind` (not e.g. `preset`) as the discriminator property name inside that value
 was chosen to match the schema's own established discriminator-naming convention
-(`scenario.kind`, `fieldDerivation.kind`) — and it was already the name the real model's
+(`scenario.kind`, `fieldDerivation.kind`) — and it was already the name that model's
 author had independently picked before this schema change existed, which is taken as
 confirmation the convention reads naturally to someone authoring a document by hand, not
 just to the schema's own internal consistency.
@@ -482,20 +475,19 @@ just to the schema's own internal consistency.
   an untyped `object`, per the convention above.
 - Additive; a 2.3.0 document validates unchanged against 2.4.0. Verified: `npm run
   validate`/`roundtrip`/`validate:manifest` all green unchanged; a smoketest document
-  modeling `export-pm-slice`'s real dateRange need (`last7Days` and `custom` scenarios
-  against `time-entries.taskDate`, alongside its existing `pmStaffId` scope) validates;
+  modeling a date-range export like the one above (`last7Days` and `custom` scenarios
+  against `orders.orderDate`, alongside a `warehouseManagerId` scope) validates;
   two malformed variants (a `dateRange` filter missing `presets`; a `presets` entry
   outside the closed enum) are each rejected with a single clean error.
 
 ## v2.5.0: command authorization
 
-Came from `platform/command-authorization` (`project/timesheets`'s Phase 04g auth
-work): every command in that model was either ungated or hand-gated by an ad-hoc
-check written directly in a literal host route (`StaffOnboardingHost.cs`,
-`TimeEntryFlaggingHost.cs`, `ImpersonationHost.cs`) — the same class of recurring
+Came from authorization work on an application's model: every command in it was
+either ungated or hand-gated by an ad-hoc check written directly in a literal host
+route (one hand-written host class per area) — the same class of recurring
 hand-write this schema has repeatedly chosen to invest in generating instead
 (`endsStream`/`derivation`/`scopes`/`groupBy`/`filters` all followed this same
-path). The real model surfaced four distinct shapes, not one: a plain role
+path). That model surfaced four distinct shapes, not one: a plain role
 requirement; a role requirement conditional on a payload field's value; an
 ownership requirement (actor must own the target row); and a role-bypass-else-
 scoped-membership requirement. All four are additive, all four are grounded in
@@ -503,11 +495,11 @@ real commands and, notably, in real *already-hand-written* code this addition
 replaces rather than merely supplements.
 
 **Why `requiredOwnership` needed a `via` lookup, not a bare field name.**
-An early sketch used a bare `targetField`. Checked against the real dispatch
+An early sketch used a bare `targetField`. Checked against the actual dispatch
 architecture before finalizing: authorization has to be decided *before* a
 command's decider runs (no earlier hook exists to inspect current aggregate
-state), off a read model, the same way `TimeEntryFlaggingHost.AuthorizeAsync`
-already does its own project-membership check by hand today. So `via` reuses
+state), off a read model, the same way the hand-written flagging host already
+did its own team-membership check. So `via` reuses
 `readModelScope`'s vocabulary (`readModelId`, plus `keyField`/`ownerField`
 naming the lookup and the compared field) rather than inventing new names for
 the same idea.
@@ -527,8 +519,8 @@ sharing a generator-side evaluator for the bypass-then-resolve order, keep the
 meaning of each visible from its own name.
 
 **Why `fieldGatedRole` got a real shape instead of staying a hand-write
-exception.** The model has two commands needing it (`onboard-staff`,
-`change-staff-role`), not one, with an identical `{field, value, requiredRole}`
+exception.** That model had two commands needing it, not one (in a model like this,
+think of inviting a user and changing a user's role), with an identical `{field, value, requiredRole}`
 shape — clearing the same "recurs, don't hand-write it a second time" bar
 `groupBy`/`filters` each used before being built.
 
@@ -537,9 +529,9 @@ shape — clearing the same "recurs, don't hand-write it a second time" bar
 `commandRole` (kebab-case id, or an array of them) — not an enum closed over
 any particular aggregate's role field, the same "doesn't verify a reference
 resolves" boundary every `*EventIds`/`via.readModelId` field in this schema
-already has. A role value sourced from outside any `staff`-shaped aggregate
-entirely (`platform/command-authorization`'s own "Administrator" decision —
-a separate concept, not a `staff.role` value) is exactly as well-formed under
+already has. A role value sourced from outside any `user`-shaped aggregate
+entirely (an "administrator" role the design kept as a separate concept, not a
+`user.role` value) is exactly as well-formed under
 `requiredRole` as one sourced from it. This schema is deliberately indifferent
 to how an actor's role claim gets populated at runtime — that's a host-layer/
 authentication-enrichment concern, same "auth is deliberately not built into
@@ -570,15 +562,14 @@ authentication itself, now extended to authorization.
 
 ## v2.6.0: `readModelQuery.asOf` — scenario-level clock pin
 
-Raised by `project/timesheets` (`NEEDS.md`/`NEEDS-FOLLOWUP-PROMPT.md` item 8), the
-other half of the gap `filters` (2.4.0) left open: a `dateRangePreset`-filtered
+The other half of the gap `filters` (2.4.0) left open: a `dateRangePreset`-filtered
 scenario pins its `given` event data to a fixed date, but has no way to pin what "today"
 means when a verify runner resolves `last7Days`/`lastCalendarMonth` against it. Every
 such scenario therefore silently drifts out of its own window on a rolling cadence
 (`last7Days`: roughly every 7 days from whenever `given` was last grounded) and starts
-failing verification for no real code reason — confirmed happening in practice against
-`export-pm-slice`'s own `last7Days` scenario, which flipped from passing to failing
-purely from calendar drift, exactly as predicted when `filters` shipped.
+failing verification for no real code reason. It happened in practice: a `last7Days`
+scenario flipped from passing to failing purely from calendar drift, exactly as
+predicted when `filters` shipped.
 
 **Why a clock pin on the query rather than on the scenario as a whole.** `asOf` is only
 ever meaningful next to a `filters`-declared preset — a scenario with no such filter has
@@ -588,15 +579,15 @@ that already carries the one thing it's pinning a clock for.
 
 **Why a bare date rather than a full timestamp.** Every existing consumer of a
 `dateRangePreset` (`last7Days`/`lastCalendarMonth`) reasons in whole calendar days, not
-times of day — matching `given`'s own `taskDate`-shaped event data, which is already
+times of day — matching `given`'s own `orderDate`-shaped event data, which is already
 date-only across every scenario that uses this preset. A full ISO 8601 timestamp would
 invite a precision this schema has no present use for, and no generator has asked for.
 
 **Why this schema stops at declaring the shape.** Exactly the same split `filters`
 itself drew: this schema only says a scenario's query can carry a fixed date. Making a
 verify runner actually treat that date as "now" instead of reading the live clock is
-`dotnetcqrs`'s job (`platform/eventmodeling-codegen`) — this schema has no runtime of
-its own to patch a clock in.
+a generator's job (`dotnetcqrs`'s, for one) — this schema has no runtime of its own to
+patch a clock in.
 
 **Concretely:**
 - `readModelQuery` gains an optional `asOf` (`{"type": "string", "format": "date"}`),
@@ -613,39 +604,38 @@ its own to patch a clock in.
 
 ## v2.7.0: `readModel.requiredRole` — the read-side mirror of command authorization
 
-Raised by `project/timesheets` (`build-plan/00-decisions-and-blockers.md` D12,
-decided 2026-09-08). 2.5.0 gave `command` a full authorization vocabulary
+Raised 2026-09-08. 2.5.0 gave `command` a full authorization vocabulary
 (`requiredRole`/`fieldGatedRole`/`requiredOwnership`/`scope`), and `dotnetcqrs`'s
 `CommandAuthorizationGenerator` now enforces it in every generated command route. The
 read side never got the equivalent: every generated `GET /api/query/{collection}`
-route requires only *an* authenticated actor, never a role. `timesheets`' own
-`scopes`-declared read models (`time-entries`, `flagged-entries`, `invoices`,
-`project-staff`) are correctly forced to the caller's own identity on their scope
-param (a hand-written Phase 04g fix, predating this capability) — but every read model
-*without* a `scopes` declaration (`staff-roster`, including `hourly_cost`; `customers`;
-`projects`; the rate-card family; `payroll-periods`; ...) returns its full tenant-wide
-contents to any signed-in user regardless of role. Confirmed directly in a real
-browser: a Staff-role dev-login account reading `/staff` got the entire roster back,
-hourly costs included, not a 403.
+route requires only *an* authenticated actor, never a role. A host can force its
+`scopes`-declared read models to the caller's own identity on their scope param by
+hand, but every read model *without* a `scopes` declaration still returns its full
+tenant-wide contents to any signed-in user regardless of role. In a shop's model, for
+example, the `scopes`-declared `orders`, `returns` and `shipments` would be safe, while
+`customers` (including `credit_limit`), `products`, `suppliers` and the price lists
+would not: a basic-role account reading `/customers` would get the entire customer
+list back, credit limits included, not a 403. This was seen in practice in a browser,
+not only predicted.
 
 **Why a generated capability rather than a hand-written guard.** This is exactly the
-progression `command.requiredRole` itself already went through: Phase 04g's
-`[HAND]`-flagged per-command guards (`TimeEntryFlaggingHost.AuthorizeAsync`,
-`ImpersonationHost`, ...) were built first, then replaced wholesale once the shape
+progression `command.requiredRole` itself already went through: `[HAND]`-flagged
+per-command guards in hand-written host classes were built first, then replaced
+wholesale once the shape
 repeated across enough commands to clear the "recurs, don't hand-write it a second
 time" bar `groupBy`/`filters`/`fieldGatedRole` each used before being built (see the
 2.5.0 entry above). The read side is the direct mirror of a shape that's already
 cleared that bar once — there's no reason to make it re-clear it via a second round of
-hand-written guards in `project/timesheets`'s `Program.cs` first.
+hand-written guards in a host's `Program.cs` first.
 
 **Why the exact same value shape as `command.requiredRole`, not a new one.**
-`timesheets`' own D12 asked specifically whether a read model could require *any one
-of several* roles, not just one. It already can, for commands: `requiredRole` was
+The request asked specifically whether a read model could require *any one of
+several* roles, not just one. It already can, for commands: `requiredRole` was
 never a single role id — it's "a role id, or a non-empty array of role ids," checked
 by membership, not equality (`CommandAuthorization.AuthorizeAsync`'s
 `requiredRole.Contains(ownRole)`). `readModel.requiredRole` reuses that exact shape
-rather than inventing a narrower one, so e.g. `invoices` can declare
-`["manager", "project-manager"]` directly.
+rather than inventing a narrower one, so e.g. `returns` can declare
+`["admin", "warehouse-manager"]` directly.
 
 **Why the backing `$def` is renamed `commandRole` → `roleRequirement`.** Purely
 internal — `$def` names never appear in an authored document, only in `$ref`
@@ -659,17 +649,17 @@ identical shape and meaning, and reusing the name without renaming would read as
 `readModel.requiredRole` borrowing from `command`'s vocabulary rather than both
 sharing a genuinely concept-neutral one.
 
-**What this addition does NOT solve.** Two things, both flagged explicitly in D12 for
+**What this addition does NOT solve.** Two things, both flagged explicitly for
 whoever builds the generator side, not resolved here:
 - *Consuming* `requiredRole` — a `ReadModelAuthorization` policy table + evaluator in
   every generated query route, structurally parallel to `CommandAuthorization.cs` — is
-  `platform/eventmodeling-codegen`'s job. This schema only declares the shape.
+  a generator's job. This schema only declares the shape.
 - The interaction between a `scopes`-forced param and a coarser `requiredRole` gate on
-  the same read model (e.g. does a Manager's tenant-wide `invoices` view hit the same
-  query route as a `project-manager`'s `pmStaffId`-scoped one, with the param simply
-  omitted, or a separate path?) isn't a schema question — it depends on how
-  `dotnetcqrs`'s existing scope-forcing is actually wired today. D12 flags it as an
-  open nuance for the generator work, not something this addition needs to answer.
+  the same read model (e.g. does an admin's tenant-wide `returns` view hit the same
+  query route as a `warehouse-manager`'s `warehouseManagerId`-scoped one, with the
+  param simply omitted, or a separate path?) isn't a schema question — it depends on
+  how `dotnetcqrs`'s existing scope-forcing is actually wired today. It is an open
+  nuance for the generator work, not something this addition needs to answer.
 
 **Concretely:**
 - `readModel` gains one optional property, `requiredRole` (`$ref`
@@ -688,7 +678,7 @@ whoever builds the generator side, not resolved here:
 
 ## v3.0.0: `field.piiSubject` — whose key a PII value is encrypted under
 
-Raised 2026-09-18 by `platform/eventmodeling-codegen`, which is making `pii` do
+Raised 2026-09-18 by generator work that is making `pii` do
 something: encrypt each PII value under a per-subject key held by a key-management
 service, and erase a person by destroying their key (crypto-shredding). The event
 log itself is never rewritten. Since 2.0, `pii` had been a bare boolean. That was
@@ -718,8 +708,8 @@ checkable in scenarios, and needs no new concept.
   email would encrypt it under the *agent's* key, and it would survive the
   customer's erasure. The explicit equivalent is a subject field plus
   `command.requiredOwnership` (2.5.0) proving the actor owns it, with `bypassRoles`
-  for staff. In the staff case the field still names the data subject, not the
-  person typing. This matches how the schema already treats the actor elsewhere:
+  for support agents. In the support case the field still names the data subject,
+  not the person typing. This matches how the schema already treats the actor elsewhere:
   looked up and checked, never assumed.
 
 **Why one subject per field, not per event.** An event can legitimately carry two
@@ -756,7 +746,7 @@ break is small.
 
 ## v3.1.0: `match` filters — searching a field, PII included
 
-Raised 2026-09-22 by `platform/eventmodeling-codegen`, while building the read side
+Raised 2026-09-22 by generator work, while building the read side
 of `pii`. Finding a record by email or by name is an ordinary need, and a PII field
 could not be searched at all. Its stored value is ciphertext, and the same value
 encrypts differently every time, so column equality never matches. 3.0.0 listed
@@ -925,8 +915,8 @@ new version, never as a silent fix.
 
 ## v3.2.0: `readModel.selfAccess` and `dataSubjects.erasure` — a person's own data
 
-Raised 2026-10-06 by `platform/eventmodeling-codegen` while carrying personal-data
-support across to its second runtime. Since 2.7.0 a read model could say "this role
+Raised 2026-10-06 while carrying personal-data support across to a second
+runtime. Since 2.7.0 a read model could say "this role
 sees every row", and nothing else. A signed-in person reading *their own* data (a
 profile page showing their email; GDPR Art. 15 access, Art. 20 portability) could not
 be declared, so each runtime would need its own hook to work out whose rows a caller
@@ -1026,9 +1016,8 @@ becomes a real problem, a shared mapping can be added later without breaking any
 
 ## v3.3.0: `outcomes` — which events come together, and which are alternatives
 
-Raised 2026-09-08 by `project/container-paas`. Decision 0008 has every aggregate
-specified as a state machine whose transition table lists, per row, the events a
-command emits. `stateChange.eventIds` is a flat list, so a command that emits `A and B`
+Raised 2026-09-08 by a design that specifies every aggregate as a state machine whose
+transition table lists, per row, the events a command emits. `stateChange.eventIds` is a flat list, so a command that emits `A and B`
 in one decision looked the same as one that emits `A` or `B` depending on a guard. The
 tables worked around it in prose. Nothing was broken yet, because no transition emitted
 two events at once, but the next one that did would have had no honest encoding.
@@ -1052,8 +1041,8 @@ change is additive. The cost is that the two can disagree. Checking that `outcom
 only uses ids from `eventIds` and covers all of them is a reference check, left to a
 lint like the other ones.
 
-**Why an empty alternative is allowed.** 0008 forbids "ignored" as a cell value: a
-repeat command that changes nothing has to be stated as idempotent. `[]` is how a slice
+**Why an empty alternative is allowed.** Such a design forbids "ignored" as a cell
+value: a repeat command that changes nothing has to be stated as idempotent. `[]` is how a slice
 says that one of its accepted outcomes emits no event. A rejection is not an outcome;
 it stays an `error` scenario.
 
@@ -1072,12 +1061,12 @@ it stays an `error` scenario.
 
 ## v3.4.0: `ingresses` — a third party calling a command
 
-Raised 2026-09-08 by `project/landing-pages` (payment processors report payments by
-calling in) and `project/container-paas` (certificate authorities and hosting providers
-call back). A `stateChange` slice required a `screenId`, and screens belong to people in
-actor lanes. A command called by another system had no slice it could belong to, so the
-`Checkout` aggregate's `RecordPaymentSucceeded`, `RecordPaymentFailed` and
-`RecordRefund` could only be hand-written around the generated code.
+Raised 2026-09-08 by systems that third parties call into: payment processors report
+payments by calling in, and certificate authorities and hosting providers call back. A
+`stateChange` slice required a `screenId`, and screens belong to people in actor lanes.
+A command called by another system had no slice it could belong to, so a `Checkout`
+aggregate's `RecordPaymentSucceeded`, `RecordPaymentFailed` and `RecordRefund`, for
+example, could only be hand-written around the generated code.
 
 **The shape.** An ingress is the machine counterpart of a screen: the point where a
 command enters the system. A `stateChange` slice names exactly one of `screenId` or
@@ -1095,11 +1084,11 @@ rejected:
 - It lets anyone who can reach the URL write to the event store. With the direct shape,
   a call becomes an event only after its signature is verified *and* a decider accepts
   the command, so a flood of forged or junk calls cannot grow the log.
-- The state machines that asked for this (`Checkout`) already model the calls as
-  commands that can be rejected, with no intermediate event.
+- State machines like `Checkout` already model the calls as commands that can be
+  rejected, with no intermediate event.
 
-**Why `verification` is required.** `landing-pages` states it as structural: an
-unverified call must be rejected, not processed optimistically. Making it optional
+**Why `verification` is required.** It is structural: an unverified call must be
+rejected, not processed optimistically. Making it optional
 would make the unsafe shape the shortest one to write. The document names a scheme and
 nothing more. Schemes differ in detail between senders (header names, timestamps, how
 the body is signed), so the name is an open string the host maps to a verifier. The
@@ -1110,7 +1099,7 @@ pasted into a document fails validation.
 timeout, so the same call arriving twice is normal. The runtime keeps the delivery ids
 it has seen and answers a repeat from the first result without dispatching again. This
 is deduplication of *calls*, separate from any idempotency a decider states for its
-own commands (the `Checkout` table's "`processorEventId` seen" rows), and the two
+own commands (a checkout's "`processorEventId` already seen" rule, say), and the two
 coexist.
 
 **What stays the host's.**
@@ -1141,16 +1130,16 @@ coexist.
 
 ## v3.5.0: timers and schedules — automations started by time
 
-Raised 2026-09-08 by `project/landing-pages` and `project/container-paas`. A checkout
-that is never paid has to expire; a drip sequence sends one email some days after
+Raised 2026-09-08 by everyday time-driven needs. A checkout that is never paid has to
+expire; a drip sequence sends one email some days after
 another; a certificate has to be renewed before it runs out; a reconcile loop runs every
 few minutes. The schema had no way to say any of this, so each one had to be an outside
 scheduler sending ordinary commands, and the model said nothing about it.
 
 **Time starts an automation; it never produces an event.** A timer going off is not a
 fact about the domain, and a decider may still have a reason to refuse. So both forms
-end the way every automation does, with a command. The `Checkout` table keeps its
-"before expiry → `ERR_NOT_EXPIRED`" row: timers are delivered at least once and can be
+end the way every automation does, with a command. A checkout's decider keeps its
+"before expiry → `ERR_NOT_EXPIRED`" refusal: timers are delivered at least once and can be
 late, and the decider is what makes that safe.
 
 **Timers are started and cancelled by events, never by commands.** A decider only
@@ -1217,8 +1206,8 @@ example, so it uses the setting's default.
 
 ## v3.6.0: `effect` — an automation that calls the outside world
 
-Raised 2026-09-08 by `project/container-paas`. Its deploy pipeline is mostly calls to
-other systems: start a container, request a certificate, call a hosting provider. Each
+Raised 2026-09-08 by a system that runs tenants' workloads, whose deploy pipeline is
+mostly calls to other systems: start a container, request a certificate, call a hosting provider. Each
 takes seconds to minutes and can succeed, fail or never answer. The schema had no way to
 say an automation calls out at all, so every such call was invisible in the document.
 
@@ -1255,8 +1244,8 @@ domain depends on:
 
 Timeouts, the number of attempts, backoff between them, and the bookkeeping of each
 attempt are the runtime's, configured by the host. The 2026-09-08 proposal modelled that
-lifecycle in the document (`container-paas`'s `ExternalEffect` table: requested,
-started, succeeded, failed, timed out). That table now describes what a runtime does
+lifecycle in the document (an `ExternalEffect` state machine: requested, started,
+succeeded, failed, timed out). That lifecycle now describes what a runtime does
 internally, not something each document repeats. Any lifecycle records a runtime keeps
 are its own, as the `DataSubject` stream is for erasure.
 
@@ -1292,9 +1281,9 @@ implementers rather than enforced:
 
 ## v3.7.0: `partitioning` — every stream and row belongs to a partition by default
 
-Raised 2026-09-08 by `project/container-paas` and `project/landing-pages`. Decision 0006
-puts tenancy in the data model from day one, because adding a tenant key to an event
-store after events exist means migrating them. The schema had authorization
+Raised 2026-09-08 by multi-tenant systems that need tenancy in the data model from day
+one, because adding a tenant key to an event store after events exist means migrating
+them. The schema had authorization
 (`requiredRole`, `requiredOwnership`, `scope`, `scopes`, `selfAccess`), but every one of
 those is opt-in per element and unscoped by default. With tenancy built from them,
 forgetting one declaration silently lets a tenant read another tenant's data.
@@ -1335,8 +1324,8 @@ A schedule with no read model has neither a trigger nor a row, so it can only se
 global commands; a lint should flag anything else.
 
 **Reads.** A partitioned read model only ever returns rows from the caller's partition.
-`crossPartitionRoles` lists roles that may read every partition, such as the operator,
-who decision 0006 treats as tenant zero with an estate-wide view. This check comes
+`crossPartitionRoles` lists roles that may read every partition, such as an operator
+treated as tenant zero with an estate-wide view. This check comes
 first. `requiredRole`, `selfAccess`, `scopes` and `filters` then apply as before, so a
 cross-partition role still needs the read model's `requiredRole`.
 A read model with `partitioned: false` built from partitioned events merges every
@@ -1370,7 +1359,7 @@ Two clarifications. **No schema shape change.**
 **`dataSubjects.erasure` authorises the request, not the erasure.** 3.2.0 described the
 declaration as saying who may call the runtime's built-in `EraseSubject`. Since then the
 runtimes have made erasure a governed process, because a request to erase can collide
-with a legal duty to keep the data (payroll, tax and employment records, for example),
+with a legal duty to keep the data (tax, accounting and employment records, for example),
 and GDPR Article 17 itself exempts data kept to meet a legal obligation. In dotnetcqrs
 the lifecycle is: `RequestErasure` → a retention check → `ErasureHeld` (with a reason
 and a review date) or `ErasureApproved` → `SubjectErased`, which destroys the key. A
@@ -1416,17 +1405,17 @@ entry carry a correction pointing here. Verified: `npm run validate`/
 
 ## v3.8.0: read access for callers without `requiredRole`
 
-Raised 2026-10-09 by `project/timesheets` (its decision D21). Seven of its read models
-let staff in, and each one meant "your own rows, and the rows on projects you manage".
-The schema could say neither half fully. `selfAccess` (3.2.0) said "your own rows", but
-only narrowed: a caller without `requiredRole` saw their own rows and nothing more. The
-"projects you manage" half was a plain scope (2.x), and a plain scope is a filter whose
-value the request supplies. So the rule lived in hand-written route code that bound the
-param to the caller only when the request carried it. A staff caller who left the param
-out read every row, pay included. Declaring the rule in the document puts it where a
+Raised 2026-10-09. A common read rule for callers without the role is "your own rows,
+and the rows of teams you lead" (in a support desk, say). The schema could
+say neither half fully. `selfAccess` (3.2.0) said "your own rows", but only narrowed: a
+caller without `requiredRole` saw their own rows and nothing more. The "teams you lead"
+half was a plain scope (2.x), and a plain scope is a filter whose value the request
+supplies. So the rule lived in hand-written route code that bound the param to the
+caller only when the request carried it. A caller without the role who left the param
+out read every row, other people's personal details included. Declaring the rule in the document puts it where a
 generator emits it every time, instead of where a hand patch can be skipped.
 
-**`grantsAccess` on a scope.** A scope whose param means "me" (`pmStaffId`,
+**`grantsAccess` on a scope.** A scope whose param means "me" (`ledBy`,
 `managedBy`) has two jobs, and 2.x gave it only one:
 - **Binding.** The value is always the caller's subject id, never the request's. A
   request can still send the param, and it still narrows, but only to the caller's own
@@ -1438,19 +1427,19 @@ generator emits it every time, instead of where a hand patch can be skipped.
   value comes from the request.
 
 Binding and granting come together because a granting scope whose value the request
-supplied would let any caller name someone else's id and read their projects. That is
+supplied would let any caller name someone else's id and read their teams' rows. That is
 exactly the hole this release closes.
 
 **`param` on `selfAccess`.** A role holder sees every row. That is right for a
-manager's tenant-wide view and wrong for the same manager's "my time" page, which needs
-their own rows only. `param` is the request's way to ask for that. Like a granting
+supervisor's tenant-wide view and wrong for the same supervisor's "my tickets" page,
+which needs their own rows only. `param` is the request's way to ask for that. Like a granting
 scope, its value is ignored; the caller is always themselves. Without `param`, an
 application has to filter by the subject field with a plain param, which means the
 client sends its own id. That is the pattern that failed.
 
 **`caller` in a stateView scenario.** Access depends on who is asking, and until now a
-scenario could not say who that was, so no scenario could show that a staff member sees
-only their own rows. `caller.subjectId` is the subject id the runtime would resolve, and
+scenario could not say who that was, so no scenario could show that an agent sees only
+their own rows. `caller.subjectId` is the subject id the runtime would resolve, and
 `caller.role` is the role it would check against `requiredRole`. Leaving `caller` out
 reads as a role holder, which is what every existing scenario meant.
 
@@ -1478,21 +1467,20 @@ runtime must refuse, not serve rows unscoped.
 
 **Why not reuse `requiredOwnership` or invent "scope roles".** `requiredOwnership` is a
 command-side check on one aggregate instance. Here the question is which rows of a list
-are visible. A per-scope role list ("a PM may see these") would need a PM role, and
-here PM is an assignment, not a role. Who manages a project is data, so the grant is a
-join on data, which is what a scope already is.
+are visible. A per-scope role list ("a team lead may see these") would need a
+team-lead role, and here team lead is an assignment, not a role. Who leads a team is
+data, so the grant is a join on data, which is what a scope already is.
 
 ## v3.9.0: `removedByEventIds` — an event that takes a row away
 
-Raised 2026-10-09 by `project/timesheets` (its decision D23). Unassigning a staff member
-from a project should take their row out of the project-staff read model. Nothing in the
-document could say so. `endsStream` (2.2.0) looks like it might, but it marks the end of
+Raised 2026-10-09. For example, unassigning an agent from a team should take their row
+out of a team-members read model. Nothing in the document could say so. `endsStream` (2.2.0) looks like it might, but it marks the end of
 a stream for the write side's `Exists`; it says nothing about read models, and a read
-model built from events across streams cannot read it as a delete anyway. So that
+model built from events across streams cannot read it as a delete anyway. So the
 runtime's projection re-merged the unassignment's fields into the row and kept it. The
 person stayed "assigned" for every rule that joins through that read model. Since 3.8.0
-that includes access (a `grantsAccess` scope), so a stale row is a stale grant. Four other
-read models there had their delete hand-written; this one was simply missed.
+that includes access (a `grantsAccess` scope), so a stale row is a stale grant. Other
+read models can have their delete hand-written, and one is easily missed.
 
 **What it means.** Each event in `removedByEventIds` deletes the row it targets. The
 target is found the way the read model's seed events find theirs: the row keyed by the
@@ -1501,34 +1489,34 @@ an attachment record whose own stream ends with the removal. A later seed event 
 same stream creates the row afresh, with none of the old values.
 
 **Why a list on the read model, not a flag on the event.** One event can mean "gone" to
-one read model and "changed" to another. An unassignment removes the project-staff row
-but only decrements a count on the projects read model. So the read model says which
+one read model and "changed" to another. An unassignment removes the team-members row
+but only decrements a count on the teams read model. So the read model says which
 events remove its rows, just as `builtFromEventIds` says which events build them.
 
 **Not covered.** A delete keyed by a payload field rather than the stream id, such as
-removing every row for a project when the project is deleted, has no use case yet. It
+removing every row for a team when the team is disbanded, has no use case yet. It
 would follow `count`'s `rowKeyField` if it ever does.
 
 ## v3.10.0: `refuseWhen` — a command's refusals, declared
 
-**Problem.** A command's business rules were invisible to the model. "A locked entry
-can't be updated", "an entry on one invoice can't be claimed by another": each was a
-hand-written guard in the decider. Generators couldn't produce them, and a scenario
-harness that runs the generated decider reported every such scenario as a failure. In
-`project/timesheets` that was three of eight known failures, with more to come (D29).
+**Problem.** A command's business rules were invisible to the model. "A locked booking
+can't be changed", "a booking held by one event plan can't be held by another": each was
+a hand-written guard in the decider. Generators couldn't produce them, and a scenario
+harness that runs the generated decider reported every such scenario as a failure, and
+these were a large share of the known failures.
 
 **Shape.** `command.refuseWhen` is an ordered list of rules. Each rule has a `message`
 and `all`, a list of conditions; it refuses when every condition holds. A condition reads
 one field, either from the aggregate's own state (`state`) or from the command
 (`command`), and applies one operator: `is` (`set`/`notSet`), `equals`/`notEquals`
 (against a literal or another field) or `contains` (a list holds a literal or another
-field's value: "this invoice already has a number" is the account's list of numbered
-invoices containing the command's invoice id).
+field's value: "this order already has a number" is the account's list of numbered
+orders containing the command's order id).
 
 **Why only these.** The rules a decider can legitimately decide are about its own stream
 and the command in front of it. The operators cover the guards seen so far: a field set
-or not (locked, claimed), a field matching another (claimed by *this* invoice), a value
-in a list (an entry type). Anything that needs another aggregate's state is out of
+or not (locked, held), a field matching another (held by *this* event plan), a value
+in a list (a booking type). Anything that needs another aggregate's state is out of
 reach by design: it belongs in a process manager or a stream that owns it, never in a
 read model on the write path. Arithmetic (next number in a sequence) stays in hand-written
 decide code.
@@ -1536,12 +1524,12 @@ decide code.
 **State fields.** `state` names a field of the aggregate's state as generators already
 build it: the union of its events' fields, each taking the value of the latest event
 that carries it. So a rule can only see what the aggregate's own events record. To
-clear a field (release a claim), an event must carry it.
+clear a field (release a hold), an event must carry it.
 
 **Order and messages.** Rules run after the create and exists checks, in order, and the
 first that holds wins. Its message is the refusal; an `error` scenario names it, and a
-harness should compare the two (timesheets audit T2 found scenarios passing on an
-unrelated refusal).
+harness should compare the two (an audit found scenarios passing on an unrelated
+refusal).
 
 **Generators** refuse a rule they can't apply, as with every other declaration, and
 check that each named field exists: a `state` field among the aggregate's events, a
@@ -1550,21 +1538,21 @@ check that each named field exists: a `state` field among the aggregate's events
 **Who and when, in a scenario.** A command scenario's `when` may name an `actor` and an `at`
 time. Generated stand-in deciders ignore them, but a harness that runs a host's own
 deciders needs them: those deciders stamp the actor and the clock onto events, and a
-scenario that checks values (the amounts on an invoice, who staged it) must be able to say
-what they were. Raised with `refuseWhen` by timesheets (D30: worked examples that run
-against the real arithmetic).
+scenario that checks values (the amounts on an order, who approved it) must be able to say
+what they were. Raised alongside `refuseWhen`, by worked examples that run against the real
+arithmetic.
 
 ## v3.11.0: numeric comparisons in `refuseWhen`
 
 **Problem.** Some rules about a command are ranges: a conversion rate must be more than 0;
-a VAT percentage runs from 0 to 100; hours can't be negative. 3.10.0 had only `is`,
+a VAT percentage runs from 0 to 100; a duration can't be negative. 3.10.0 had only `is`,
 `equals`, `notEquals` and `contains`. So these stayed hand-written, and a harness running
 the generated decider reported them as failures. Its own example worked around it with
-`equals: 0`, which refused 0 hours but let -2 through.
+`equals: 0`, which refused a duration of 0 but let -2 through.
 
 **Shape.** Four operators, each taking a number or `{ "state" | "command": field }`:
 `lessThan`, `atMost`, `greaterThan` and `atLeast`. They are named for what they test, so a
-rule reads as the refusal it is: "hours `atMost` 0" refuses zero and negative hours.
+rule reads as the refusal it is: "duration `atMost` 0" refuses zero and negative durations.
 
 **Unset values.** A comparison with a missing or null value never holds, on either side.
 Whether a value may be missing is a separate rule (`is: notSet`, with its own message).
@@ -1578,8 +1566,8 @@ field operand. Generators check this, as they check that each named field exists
 **Problem.** 3.3.0's `outcomes` lists the alternatives a command can emit, but not which one applies. A decider is
 `decide(command, state) -> events`, and the choice between alternatives is part of it; with the choice missing, a
 generator can't write the decider and a harness running a generated one can't check it. Generators refused
-`outcomes` as a result. `project/timesheets` (D30.18) needs one: an entry whose hours are paid at no cost is logged
-and flagged in the same decision, so neither exists without the other.
+`outcomes` as a result. For example, a refund over a threshold is requested and flagged in the same decision,
+so neither exists without the other.
 
 **Replay is not affected.** Replay folds the stored events through `evolve`; it never runs `decide` again. Both
 events are recorded, so the state after replay is the same every time. What the decision needs is to be
@@ -1592,14 +1580,14 @@ and an outcome are both branches of `decide`; one ends in an error, the other pi
 language.
 
 **`"hand"`: where the model stops.** The schema describes data and its flow; calculation is written by hand. Some
-conditions are properties of a calculation: "paid at no cost" is "the pay works out at 0", and pay is a price
-times hours with a fallback rule. Written as declared conditions, it would copy the calculation into the model,
-and the two could drift. `when: "hand"` says the choice exists and that code makes it. A generator emits a hook
+conditions are properties of a calculation: "over the threshold" is "the amount, converted to the home currency,
+is more than the limit", and converting is the amount times a rate that has to be looked up. Written as declared
+conditions, it would copy the calculation into the model, and the two could drift. `when: "hand"` says the choice exists and that code makes it. A generator emits a hook
 the code must fill (an error if it doesn't, not a comment), and a harness running the generated decider reports
 scenarios that depend on that choice separately: it can check that the events are one of the declared alternatives
 and that their fields match, but not that the choice was right. The real decider is checked by the host.
 
-**`set`.** An alternative can fix values on its events: the flag's `reason` is "no-cost" because of which
+**`set`.** An alternative can fix values on its events: the flag's `reason` is "over-threshold" because of which
 alternative applied, not because of anything on the command. Values only, no expressions.
 
 **Compatibility.** An alternative is either 3.3.0's list of ids or the new object, so a 3.11.0 document validates
@@ -1615,21 +1603,21 @@ unchanged. A list-form alternative still means "condition unknown".
 
 ## v3.13.0: repeated events in an outcome
 
-**Problem.** `project/timesheets` (D30.20) releases a payroll period: one decision records the release and pays
-each staff member what they are owed. The payments must be appended with the release, atomically, or a period
-could be released without its payments. Each person's pay is PII, encrypted under that person's key, and a PII
-field has one subject, so the payments can't be one list on one event: each is its own event. 3.12.0's alternatives
-list each event once, so "the release, then a payment per person" had no shape.
+**Problem.** Consider closing a grant round: one decision records the closing and awards each recipient with an
+approved application. The awards must be appended with the closing, atomically, or a round could be closed without
+its awards. Each recipient's award is PII, encrypted under that recipient's key, and a PII field has one subject, so
+the awards can't be one list on one event: each is its own event. 3.12.0's alternatives list each event once, so
+"the closing, then an award per recipient" had no shape.
 
 **`repeated`.** An alternative lists the events that occur zero or more times, one per item, each in its place in
-`eventIds`' order. Zero, so a release that owes nobody anything is the same alternative, not a second one with a
-condition. How many there are and what each carries is worked out from state (here, every entry's current pay
-less what each person has been paid), which is calculation, so it is hand-written: a generator emits a hook that
+`eventIds`' order. Zero, so a closing that awards nobody anything is the same alternative, not a second one with a
+condition. How many there are and what each carries is worked out from state (here, every approved application's
+amount, per recipient), which is calculation, so it is hand-written: a generator emits a hook that
 returns the items. A harness running a generated decider reports such scenarios as chosen by hand, and accepts the
 expected events when they fit the alternative, with each repeated event appearing any number of times in place.
 
 **Why not a list field with a subject per item.** It would need a subject per list item in the encryption layer,
-the mapping and erasure, and erasing one person would rewrite an event that holds everyone's pay. One event per
+the mapping and erasure, and erasing one person would rewrite an event that holds everyone's award. One event per
 person keeps one subject per value, which every layer already handles.
 
 **Replay is not affected,** for the reason 3.12.0 gives: the events are recorded, and replay folds them.
@@ -1645,10 +1633,9 @@ event is one of `eventIds` is not structural, so generators check it (as they ch
 ## v3.14.0: rows keyed by a field of the event
 
 **Problem.** A read model's row has always been a stream: the events of one stream merge into one row. That
-breaks where one stream holds many rows' events. `project/timesheets` (D30.20) keeps its payroll on one stream,
-so that releases can be contiguous and never pay the same work twice, and each release records a payment per
-staff member (3.13.0's repeated events). Shown per period and per person, those are many rows, all from one
-stream.
+breaks where one stream holds many rows' events. For example, a grant round is one stream, so that its closing sees every
+approved application and never awards the same one twice, and the closing records an award per recipient (3.13.0's
+repeated events). Shown per recipient, those are many rows, all from one stream.
 
 **`rowKeyField`.** A read model names the field of its events that names the row, in place of the stream. Every
 event in `builtFromEventIds` and `removedByEventIds` must carry it, so the row an event updates (or removes) is
@@ -1656,24 +1643,24 @@ always known. `count`/`sum` derivations already key their target row by a field 
 `rowKeyField`, for events on other streams); this is the same idea for the row's own events.
 
 **Why not one stream per row.** Here the invariant decides: the stream is the unit of consistency. Splitting the
-payroll into a stream per period would lose the check that periods are contiguous and that nothing is paid twice,
-which needs one stream's state. The read side should follow the data, not dictate the streams.
+round into a stream per award would lose the check that the closing covers every approved application and that
+nothing is awarded twice, which needs one stream's state. The read side should follow the data, not dictate the streams.
 
 **Compatibility.** Optional; a 3.13.0 document validates unchanged and means what it meant. That the events carry
 the field is not structural, so generators check it.
 
 **Concretely:**
 - `readModel` gains `rowKeyField` (a non-empty string).
-- Verified: every example validates, including `examples/repeated-outcomes.json`'s new `payments` read model.
+- Verified: every example validates, including `examples/repeated-outcomes.json`'s new `awards` read model.
   Rejected: an empty or non-string `rowKeyField`.
 
 ## v3.15.0: ownership decided by the aggregate
 
 **Problem.** `requiredOwnership` (2.5.0) names a read model to look the owner up in, so ownership is checked
-before the command, from a projection. That lags. `project/timesheets` saw both sides of it (its paradigm audit,
-W5): the first edit after logging an entry was refused because the entry's row wasn't projected yet, and after a
-delete was projected the owner got "not yours" instead of "deleted". A rule that must hold belongs in the stream
-that owns it, and the entry's own stream knows whose it is.
+before the command, from a projection. That lags, and both sides of it show up in practice. For example, the
+first change after making a request was refused because the request's row wasn't projected yet, and after a withdrawal was projected
+the owner got "not yours" instead of "withdrawn". A rule that must hold belongs in the stream that owns it, and the
+request's own stream knows whose it is.
 
 **`stateField`.** The field of the aggregate's own state that names the owner. The aggregate's decision compares it
 with the command's actor and refuses anyone else. The refusal is marked forbidden, so a host can answer it as
@@ -1696,10 +1683,10 @@ alternatives (exactly one); `message` goes with `stateField`.
 
 ## v3.16.0: rows per list item
 
-**Problem.** A read model's row is a stream (or, since 3.14.0, a field its events carry). `project/timesheets` (D33)
-shows a client's invoice to each project manager as their project's part: that project's lines, their subtotal, and
-the invoice's status and number. The invoice is one stream whose events carry its lines, each naming its project;
-the rows are groups of those lines. No declaration said that, so the read model was a hand-written projection and its
+**Problem.** A read model's row is a stream (or, since 3.14.0, a field its events carry). Consider a delivery run shown
+to each depot's supervisor as that depot's load: the depot's parcels, their total weight, and the delivery's status
+and run number. The delivery is one stream whose events carry its parcels, each naming its depot; the rows are
+groups of those parcels. No declaration said that, so the read model was a hand-written projection and its
 view scenarios couldn't be checked against generated code.
 
 **`rowsPerListItem`.** `listField` is a list the read model's events carry; each carrying event replaces the
@@ -1708,16 +1695,15 @@ group. A row is keyed `<stream>|<group>`; its `groupBy` field is the group's val
 and every other plain field is copied from the stream's events, as a one-row-per-stream read model's would be. The
 rows are rebuilt from the stream's facts after each event, so replay is deterministic.
 
-**Why an item without the subfield is in no row.** A line that belongs to no group (an invoice's currency
-conversion margin) must not fall into one. Falling back to a stream-level value was considered and refused: the
-stream-level field can be set by any event (a claim names the claimed entry's project), so the fallback would pick an
-arbitrary group.
+**Why an item without the subfield is in no row.** An item that belongs to no group (the van's roll cages) must
+not fall into one. Falling back to a stream-level value was considered and refused: the stream-level field can be set
+by any event (an event about one parcel names that parcel's depot), so the fallback would pick an arbitrary group.
 
-**`sumOfItems`.** The sum of a subfield over the row's items, absent unless every item carries it. Lines in different
-currencies are never added: a draft's lines carry no converted amount, so a draft's part has no subtotal, without
-the read model naming a status.
+**`sumOfItems`.** The sum of a subfield over the row's items, absent unless every item carries it. Declared and
+weighed weights are never added together: a planned delivery's parcels carry no weighed weight, so a planned
+delivery's load has no total weight, without the read model naming a status.
 
-**`byEvent`.** A literal per event (`values`, event id to value), such as `staged` / `finalising` / `finalised`. No
+**`byEvent`.** A literal per event (`values`, event id to value), such as `planned` / `dispatched`. No
 event needs to carry a status for the read model to show one; `toggle` is the 0/1 case.
 
 **Compatibility.** Additive. Without `rowsPerListItem` a row is a stream, as before.
@@ -1733,9 +1719,9 @@ event needs to carry a status for the read model to show one; `toggle` is the 0/
 
 ## v3.17.0: a read model built by hand
 
-**Problem.** Some read models are joins across streams that no declaration expresses: `project/timesheets`' late
-entries (an entry, its project's client and cadence, and whether that client's period has been invoiced) are
-recomputed whenever any of those changes. Their projection is hand-written. Their view scenarios still say what the
+**Problem.** Some read models are joins across streams that no declaration expresses. For example, late orders
+(an order, the day it is for, and whether that day's dispatch has already closed) are recomputed whenever either of
+those changes. Their projection is hand-written. Their view scenarios still say what the
 read model must show, but a check that runs generated projections can only fail them, so they sat as known failures
 in both checks, proving nothing and hiding any new failure among them.
 
@@ -1761,5 +1747,20 @@ target; a role and a scope, a holder of the role within the scope (or with a byp
 condition doesn't apply adds nothing. Any other reading would let one declaration grant what another refuses.
 
 Found 2026-10-13: dotnetcqrs's generated evaluator returned as soon as it found `requiredRole`, so the others on
-the same command were never checked (timesheets' paradigm audit, S2; fixed in dotnetcqrs `6649745`). No schema
+the same command were never checked (found by an audit; fixed in dotnetcqrs `6649745`). No schema
 change: documents mean what they meant; this note says it.
+
+## v4.0.0: `memberOfVia.actorField` — the document says which field holds the member
+
+A command `scope` resolves a value from the target's read-model row (`resolveVia`) and then checks that the actor is
+a member of a set: the rows of a second read model whose `matchField` equals that value (`memberOfVia`). Until 4.0.0
+the document named the matched field but not the field holding each member's id, so the check could not be written
+from the document alone: a generator had to assume a column, and an assumed column is a convention no reader of the
+document can see, one that fits whichever system it was first written for and no other.
+
+`actorField` names it. It is required, not defaulted, for the same reason `endsStream` is explicit rather than
+inferred: a scope without it is incomplete, and a default would be exactly the hidden convention this removes. That
+makes the change breaking, hence 4.0.0. A 3.x document with a `scope` adds the one field; no other document changes.
+
+`ownershipVia` already names its compared field (`ownerField`); `actorField` is the membership counterpart. It is not
+called `ownerField` because a member of a set is not its owner.
