@@ -72,7 +72,8 @@ main additions are:
 - **3.17.0:** `readModel.projection: "hand"`: a read model built by a hand-written projection, whose
   view scenarios a host check proves against the host's own code.
 - **4.0.0 (breaking):** `scope.memberOfVia.actorField`: the document names the field holding a member's
-  actor id, rather than leaving it to a generator's convention.
+  actor id, rather than leaving it to a generator's convention. `scope.message`: a scope refusal's own
+  message.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

@@ -12,10 +12,14 @@ See `docs/design-notes.md` for the full rationale behind each change.
   field, so which field held the member was left to each generator's convention. A 3.x document with a `scope` must
   add `actorField`; any other 3.x document validates unchanged.
 
+**Additive (non-breaking):**
+- `command.scope.message`: the refusal's message when the actor is not a member. A generator's authorization
+  refuses with it, so a scenario can expect a scope refusal by its message, as it does any other.
+
 **Examples:**
 - The examples describe neutral domains (equipment hire, a support desk, a venue's bookings, a grant fund, delivery
   runs, a tool library). They demonstrate the same features as before.
-- `examples/state-ownership.json` also demonstrates a command `scope` with `actorField`.
+- `examples/state-ownership.json` also demonstrates a command `scope` with `actorField` and `message`.
 
 **Clarified:** a command's authorization declarations (`requiredRole`, `fieldGatedRole`, `requiredOwnership`,
 `scope`) combine: every one declared must hold. See `docs/design-notes.md`.

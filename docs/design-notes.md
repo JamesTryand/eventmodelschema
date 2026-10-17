@@ -1764,3 +1764,15 @@ makes the change breaking, hence 4.0.0. A 3.x document with a `scope` adds the o
 
 `ownershipVia` already names its compared field (`ownerField`); `actorField` is the membership counterpart. It is not
 called `ownerField` because a member of a set is not its owner.
+
+### `scope.message` — a scope refusal says why
+
+An error scenario names the message it expects, and a check passes it only on that refusal: any refusal used to
+pass, so a rule the model declared and the code lacked looked like it worked whenever some other rule refused
+first. A scope refusal had no message of its own, so a scenario about one (`state-ownership.json`'s
+`volunteer-at-another-branch-is-refused`) could only fail, refused for another reason or accepted by a check that
+ran the decider alone. `message` gives the refusal the domain's wording. Checking a scenario runs the command's
+authorization, over read models built from the scenario's given events, before its decider, as a gateway does; the
+scope refuses with `message`, and a gateway answers the forbidden request with it too. It is optional: without
+it a generator uses its own wording, and a scenario about that refusal cannot be checked by message. It is
+additive, so it joins 4.0.0, which was not yet released.
