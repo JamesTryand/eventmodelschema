@@ -1776,3 +1776,27 @@ authorization, over read models built from the scenario's given events, before i
 scope refuses with `message`, and a gateway answers the forbidden request with it too. It is optional: without
 it a generator uses its own wording, and a scenario about that refusal cannot be checked by message. It is
 additive, so it joins 4.0.0, which was not yet released.
+
+## v4.1.0: `when.role` — a command scenario says which role its actor holds
+
+Raised 2026-10-17. Since checks run a command's authorization before its decider (see `scope.message` above), a
+command scenario has to stand for some caller, and it named only an actor. Checks read it, like a view scenario
+naming no caller, as an actor holding the command's required roles and none of its bypass roles. That reading can't
+express the case bypass roles exist for: in a timesheet model, a manager flags any entry, while a project manager
+flags only entries on their own projects (a `scope` with `bypassRoles: ["manager"]`). The manager's scenarios were
+refused by the scope, as if the manager were a project manager on someone else's project.
+
+A role is the right thing to name, not a person: responsibility is assigned to roles, the declarations
+(`requiredRole`, `fieldGatedRole`, `bypassRoles`) are written in roles, and a host resolves a caller to one role
+before authorizing anything. `when.role` is that resolved role. A check runs every declaration with it:
+
+- `requiredRole` and `fieldGatedRole` must admit it, so a scenario can show a role being refused as well as allowed;
+- a `requiredOwnership` (`via`) or `scope` whose `bypassRoles` name it is skipped, so a scenario can show the bypass.
+
+It mirrors `caller.role` on a view scenario (3.8.0), which already says the same of a query's caller. It is
+optional, and a scenario without it means what it meant, so the change is additive.
+
+**What it does not cover.** `requiredRole` and `fieldGatedRole` name no message, so a role refusal is worded by
+each runtime, and an error scenario expecting one can only name that runtime's wording. A `message` on those
+declarations, as `scope` has, would make such a scenario portable; nothing needs it yet. `requiredOwnership.stateField`
+has no bypass (the decision knows its actor, not their role), so `when.role` does not change it.

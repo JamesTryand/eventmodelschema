@@ -74,6 +74,8 @@ main additions are:
 - **4.0.0 (breaking):** `scope.memberOfVia.actorField`: the document names the field holding a member's
   actor id, rather than leaving it to a generator's convention. `scope.message`: a scope refusal's own
   message.
+- **4.1.0:** `when.role` on a command scenario: the role its actor holds, so a scenario can show a
+  role's bypass, or a role being refused.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

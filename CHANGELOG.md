@@ -3,6 +3,18 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 4.1.0
+
+**Additive (non-breaking):**
+- `when.role` on a command scenario (`stateChange` or `error`): the role the actor holds when sending the command,
+  as a view scenario's `caller.role` already is for a query. A check runs the command's authorization with it:
+  `requiredRole` and `fieldGatedRole` must admit it, and a `requiredOwnership` or `scope` whose `bypassRoles` name
+  it is skipped. Without it a scenario means what it did: an actor holding the command's required roles and none of
+  its bypass roles. So a scenario can now show a bypassing role at work (a coordinator approving at any branch), and
+  a role being refused.
+- `examples/state-ownership.json`: the approval scope has `bypassRoles: ["coordinator"]`, with a scenario of a
+  coordinator approving at a branch they don't volunteer at.
+
 ## 4.0.0
 
 **Breaking:**
