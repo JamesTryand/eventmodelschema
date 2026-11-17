@@ -6,6 +6,9 @@
   "scripts": {
     "validate": "ajv validate -s eventmodeling.schema.json -d \"examples/*.json\" --spec=draft2020 -c ajv-formats",
     "validate:manifest": "ajv validate -s manifest.schema.json -d \"examples/*/manifest.json\" --spec=draft2020 -c ajv-formats",
+    "validate:architecture": "ajv validate -s architecture.schema.json -d \"examples/architecture/*.architecture.json\" --spec=draft2020 -c ajv-formats",
+    "check:architecture": "node scripts/architecture-check.js examples/architecture/library.architecture.json",
+    "test:architecture": "node scripts/architecture-check.test.js",
     "split": "node scripts/split.js",
     "join": "node scripts/join.js",
     "roundtrip": "node scripts/roundtrip-check.js examples/order-fulfillment.json && node scripts/roundtrip-check.js examples/minimal.json"

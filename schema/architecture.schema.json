@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/architecture.schema.json",
+  "title": "Coordinating Document",
+  "description": "Structural schema for a coordinating document: the systems that work together (each an EventModel document, or a placeholder for one not written yet), the edges between them and across the edge of the whole, and named flows through those edges. An edge says THAT a message passes and what it means, never how it is carried: no bus, queue, URL, schedule or credential (those are configured outside, by surface tooling, joined to an edge by its id). Cross-references (that a system's document exists, that an edge's event and command are public at that version, that fields map, that personal data crosses only into a system with erasure, that a flow's edges connect) are checked by scripts/architecture-check.js, not here.",
+  "type": "object",
+  "required": ["architectureSchemaVersion", "id", "name", "systems"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri" },
+    "architectureSchemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "default": "0.1.0"
+    },
+    "id": { "$ref": "#/$defs/id" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "systems": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/system" },
+      "minProperties": 1
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flow" }
+    }
+  },
+  "additionalProperties": false,
+
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+
+    "system": {
+      "description": "One system: either an existing EventModel document (bottom-up) or a placeholder giving the contract of one not written yet (top-down).",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "document": { "$ref": "#/$defs/documentRef" },
+        "placeholder": { "$ref": "#/$defs/placeholder" }
+      },
+      "oneOf": [
+        { "type": "object", "required": ["document"] },
+        { "type": "object", "required": ["placeholder"] }
+      ],
+      "additionalProperties": false
+    },
+
+    "documentRef": {
+      "description": "Where the system's EventModel document is. A path is relative to this coordinating document's own directory. (Referring to a document in another repository, by id and version, is not settled yet.)",
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+
+    "placeholder": {
+      "description": "The contract of a system not written yet: the events it will publish and the commands it will accept. Everything in it is public by definition.",
+      "type": "object",
+      "properties": {
+        "publishes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contractEvent" }
+        },
+        "accepts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contractCommand" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "contractEvent": {
+      "type": "object",
+      "required": ["event", "version"],
+      "properties": {
+        "event": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "description": { "type": "string" },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/contractField" } }
+      },
+      "additionalProperties": false
+    },
+
+    "contractCommand": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1, "default": 1 },
+        "description": { "type": "string" },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/contractField" } }
+      },
+      "additionalProperties": false
+    },
+
+    "contractField": {
+      "description": "A field of a placeholder's event or command: the subset of an EventModel field a contract needs.",
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": ["string", "boolean", "integer", "long", "decimal", "double", "date", "dateTime", "uuid", "custom"]
+        },
+        "description": { "type": "string" },
+        "optional": { "type": "boolean" },
+        "cardinality": { "enum": ["single", "list"] },
+        "pii": { "type": "boolean" },
+        "piiSubject": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+
+    "eventEnd": {
+      "description": "An event at a version, published by a system.",
+      "type": "object",
+      "required": ["system", "event", "version"],
+      "properties": {
+        "system": { "$ref": "#/$defs/id" },
+        "event": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+
+    "commandEnd": {
+      "description": "A command accepted by a system.",
+      "type": "object",
+      "required": ["system", "command"],
+      "properties": {
+        "system": { "$ref": "#/$defs/id" },
+        "command": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+
+    "edge": {
+      "description": "A message passing between two systems here (internal), or across the edge of the whole (external). Never how it is carried.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["internal", "external"] },
+        "description": { "type": "string" },
+        "shape": {
+          "description": "External edges only, the three shapes a message may cross the edge in: input (a message enters as a command), output (a message leaves after an event; nothing comes back), call (a call out after an event, whose answer and give-up come back in as commands).",
+          "enum": ["input", "output", "call"]
+        },
+        "from": { "$ref": "#/$defs/eventEnd" },
+        "to": { "$ref": "#/$defs/commandEnd" },
+        "answers": {
+          "description": "A call's answers: the command(s) its answer and its give-up come back in as.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandEnd" },
+          "minItems": 1
+        },
+        "targetId": {
+          "description": "Rule 2: the source event's field(s) the command's target id is derived from, so a redelivered event reaches the same target.",
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true }
+          ]
+        },
+        "fields": {
+          "description": "Rule 1, the receiver's translation: each command field (key) and the source event field it takes its value from.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "internal" } } },
+          "then": {
+            "type": "object",
+            "required": ["from", "to", "targetId", "fields"],
+            "not": { "anyOf": [ { "required": ["shape"] }, { "required": ["answers"] } ] }
+          }
+        },
+        {
+          "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "external" } } },
+          "then": {
+            "type": "object",
+            "required": ["shape"],
+            "not": { "anyOf": [ { "required": ["targetId"] }, { "required": ["fields"] } ] }
+          }
+        },
+        {
+          "if": { "type": "object", "required": ["shape"], "properties": { "shape": { "const": "input" } } },
+          "then": { "type": "object", "required": ["to"], "not": { "anyOf": [ { "required": ["from"] }, { "required": ["answers"] } ] } }
+        },
+        {
+          "if": { "type": "object", "required": ["shape"], "properties": { "shape": { "const": "output" } } },
+          "then": { "type": "object", "required": ["from"], "not": { "anyOf": [ { "required": ["to"] }, { "required": ["answers"] } ] } }
+        },
+        {
+          "if": { "type": "object", "required": ["shape"], "properties": { "shape": { "const": "call" } } },
+          "then": { "type": "object", "required": ["from", "answers"], "not": { "required": ["to"] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+
+    "flow": {
+      "description": "A named path through the edges, in order: each edge must start in the system the one before it ended in. Read by people and the checker; it generates nothing. What starts a flow is its first edge (an external input, say), never a person or a schedule named here.",
+      "type": "object",
+      "required": ["id", "name", "edges"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

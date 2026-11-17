@@ -68,10 +68,27 @@ Slice/registry files are referenced by explicit path in the manifest, not
 discovered by naming convention — so they can be organized however's useful (flat,
 by swimlane, by pattern-role) without any tooling changes.
 
+## Coordinating documents
+
+`architecture.schema.json` describes several systems working together: each system's EventModel document (or a
+placeholder for one not written yet), the edges between them and across the edge of the whole, and named flows. It
+has its own version, `architectureSchemaVersion` (0.1.0). The schema checks structure; the checker checks the rest:
+
+```sh
+node scripts/architecture-check.js examples/architecture/library.architecture.json        # or --json
+npm run test:architecture   # the worked example passes; each of 23 broken copies is refused by its own check
+```
+
+It refuses a system document that is missing or invalid, an id that names nothing, an event or command that is not
+`public` (4.2.0) at the version the edge names, a target id not taken from the source event, a field mapping that
+does not line up (or leaves a required command field unmapped), personal data crossing into a system without
+governed erasure, and a flow whose edges do not connect. Then it prints each system's coupling. See
+`docs/design-notes.md` ("Coordinating documents").
+
 ## Versioning
 
 `eventModelingSchemaVersion` in each document is a semver string; current is
-`"4.1.0"`. Bump the major for a breaking change (one that could invalidate
+`"4.2.0"`. Bump the major for a breaking change (one that could invalidate
 existing documents), the minor for an additive one — see `../CHANGELOG.md` for
 what changed at each version.
 

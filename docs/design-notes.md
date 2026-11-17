@@ -1800,3 +1800,58 @@ optional, and a scenario without it means what it meant, so the change is additi
 each runtime, and an error scenario expecting one can only name that runtime's wording. A `message` on those
 declarations, as `scope` has, would make such a scenario portable; nothing needs it yet. `requiredOwnership.stateField`
 has no bypass (the decision knows its actor, not their role), so `when.role` does not change it.
+
+## v4.2.0: `public` — what other systems may use, at a version
+
+A system's events and commands were all one thing: nothing said which of them another system may depend on. The
+coordinating document (below) joins systems by their events and commands, and a system must be free to change
+everything nobody else uses. So an event or command now says it is part of the system's public contract, at a
+version: `"public": { "version": 1 }`. Without the marker it is private, and a coordinating document's edge may not
+use it. A public event changes only by a new version, so a receiver written against version 1 keeps working.
+
+It is optional and changes nothing a generator makes, so the change is additive. It says nothing about how a
+message is carried: that is surface tooling's, never the model's.
+
+## Coordinating documents (`architecture.schema.json`, 0.1.0)
+
+Several systems working together, each with its own EventModel document, need one place that says how they connect.
+That is a coordinating document. It is a second schema with its own version (`architectureSchemaVersion`), because
+it describes documents, not a model.
+
+- **`systems`:** each is a `document` (an existing EventModel document, by path relative to the coordinating
+  document) or a `placeholder` (the contract of a system not written yet: the events it will publish, the commands
+  it will accept). So a design can start from either end: systems that exist (bottom-up), or a whole sketched with
+  placeholders first (top-down).
+- **`edges`:** an `internal` edge joins two systems here: a public event of one becomes a public command of the
+  other. An `external` edge crosses the edge of the whole in one of three shapes, the only three a message may take
+  across the boundary: `input` (a message enters as a command), `output` (a message leaves after an event; nothing
+  comes back) and `call` (a call out after an event, whose answer and give-up come back in as commands, its
+  `answers`). An edge never says how it is carried: no bus, queue, URL, schedule or credential. Those are configured
+  outside, by surface tooling, joined to the edge by its id.
+- **`flows`:** named paths through the edges, in order: the sequence a reader follows ("a sign-up becomes a lead").
+  They generate nothing. What starts a flow is its first edge, an external input say, never a person or a
+  schedule named here (that would be a source).
+
+**Four rules, checked by `scripts/architecture-check.js`:**
+
+1. **The receiver owns the translation.** An internal edge belongs to the system it goes to: its `fields` map the
+   command's fields from the event's, and the receiving system's reaction carries it out. Every mapped field must
+   exist on both sides with the same type and cardinality, and every required field of the command must be mapped.
+2. **The target id comes from the source event.** `targetId` names the event field(s) the command's target id is
+   derived from, so a redelivered event reaches the same target (and a create-once rule, or the runtime's applied
+   command check, refuses the repeat). Required on every internal edge.
+3. **Only public events and commands, at their version.** An edge may use an event or command only if its system
+   marks it `public`, and an edge names the event's version. A placeholder's contract is public by definition.
+4. **Personal data crosses only into erasure.** A field marked `pii` in the source event may be mapped only into a
+   system whose document declares governed erasure (`dataSubjects.erasure`), and only into a field marked `pii` there
+   too; otherwise the receiver would keep a copy that erasing the person cannot reach. A placeholder cannot declare
+   erasure, so personal data cannot cross into one until its document is written.
+
+The checker also checks that each system's document exists and is a valid EventModel document, that every id an
+edge or flow names exists, and that each flow's edges connect in order (an edge starts in the system the one before
+it ended in; nothing follows an output). It ends with a coupling report: per system, its edges in and out, the
+systems it depends on (whose public events it receives) and those that depend on it.
+
+**Not yet:** a document that replaces a placeholder is not checked against the placeholder's contract; a system's
+document is one file (a split document's manifest is not read); and a document in another repository has no way
+to be named but a path (an id and version, or a registry, is still open).

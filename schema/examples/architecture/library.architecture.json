@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/architecture.schema.json",
+  "architectureSchemaVersion": "0.1.0",
+  "id": "library",
+  "name": "Library: members, lending and fines",
+  "description": "A worked example: two systems written bottom-up (members, lending) and one top-down (fines, a placeholder), with every kind of edge and two flows.",
+  "systems": {
+    "members": { "name": "Members", "document": { "path": "members.eventmodel.json" } },
+    "lending": { "name": "Lending", "document": { "path": "lending.eventmodel.json" } },
+    "fines": {
+      "name": "Fines (not written yet)",
+      "placeholder": {
+        "publishes": [
+          { "event": "fine-paid", "version": 1, "fields": [ { "name": "fineId", "type": "string" } ] }
+        ],
+        "accepts": [
+          {
+            "command": "raise-fine",
+            "fields": [
+              { "name": "fineId", "type": "string" },
+              { "name": "borrowerId", "type": "string" },
+              { "name": "days", "type": "integer" }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "join", "kind": "external", "shape": "input",
+      "description": "Someone joins at the desk or online.",
+      "to": { "system": "members", "command": "join-member" }
+    },
+    {
+      "id": "member-becomes-borrower", "kind": "internal",
+      "from": { "system": "members", "event": "member-joined", "version": 1 },
+      "to": { "system": "lending", "command": "register-borrower" },
+      "targetId": "memberId",
+      "fields": { "borrowerId": "memberId", "branchId": "branchId" }
+    },
+    {
+      "id": "welcome-mail", "kind": "external", "shape": "output",
+      "from": { "system": "members", "event": "member-joined", "version": 1 }
+    },
+    {
+      "id": "overdue-fine", "kind": "internal",
+      "from": { "system": "lending", "event": "loan-overdue", "version": 1 },
+      "to": { "system": "fines", "command": "raise-fine" },
+      "targetId": "loanId",
+      "fields": { "fineId": "loanId", "borrowerId": "borrowerId", "days": "daysOverdue" }
+    },
+    {
+      "id": "overdue-reminder", "kind": "external", "shape": "call",
+      "description": "A reminder is sent; whether it was delivered, or the attempt given up, comes back as record-reminder.",
+      "from": { "system": "lending", "event": "loan-overdue", "version": 1 },
+      "answers": [ { "system": "lending", "command": "record-reminder" } ]
+    }
+  ],
+  "flows": [
+    { "id": "joining", "name": "Someone joins and can borrow", "edges": [ "join", "member-becomes-borrower" ] },
+    { "id": "welcome", "name": "Someone joins and is welcomed", "edges": [ "join", "welcome-mail" ] },
+    { "id": "overdue", "name": "An overdue loan is fined", "edges": [ "overdue-fine" ] }
+  ]
+}

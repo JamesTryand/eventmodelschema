@@ -13,6 +13,10 @@ that generates code/infrastructure from documents conforming to the schema.
   every notation (all 3 slice patterns, all 3 scenario kinds, a hotspot, a chapter,
   an actor lane), plus `order-fulfillment-split/`, the same document laid out as a
   manifest + one file per registry/slice.
+- `schema/architecture.schema.json` + `schema/scripts/architecture-check.js` — the coordinating document:
+  several systems' documents, the edges between them and across the edge of the whole, and flows; the checker
+  enforces its four rules and reports coupling. `schema/examples/architecture/` is a worked example. See
+  `schema/README.md`.
 - `schema/manifest.schema.json` + `schema/scripts/{split,join,roundtrip-check}.js` —
   the multi-file composition layer: split a document into a manifest + files, join
   it back losslessly. See `schema/README.md`.
@@ -28,7 +32,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `4.0.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `4.2.0` (this line said 4.0.0 through 4.1.0; corrected 2026-11-17). `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -76,6 +80,9 @@ main additions are:
   message.
 - **4.1.0:** `when.role` on a command scenario: the role its actor holds, so a scenario can show a
   role's bypass, or a role being refused.
+- **4.2.0:** `public` on an event or command, at a version: what another system may use. With it, a second
+  schema, `architecture.schema.json` (0.1.0): the **coordinating document** for systems that work together,
+  and its checker (below).
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

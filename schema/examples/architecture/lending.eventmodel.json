@@ -1,0 +1,111 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
+  "eventModelingSchemaVersion": "4.2.0",
+  "id": "library-lending",
+  "name": "Library: lending",
+  "description": "One system of the coordinating document library.architecture.json: borrowers and loans. It holds no personal data; a borrower is registered from the members system's member-joined, by id only.",
+  "swimlanes": [
+    { "id": "lending", "name": "Lending", "kind": "system" }
+  ],
+  "events": {
+    "borrower-registered": {
+      "name": "Borrower Registered",
+      "swimlaneId": "lending",
+      "aggregate": "borrower",
+      "fields": [
+        { "name": "borrowerId", "type": "string", "idAttribute": true },
+        { "name": "branchId", "type": "string" }
+      ]
+    },
+    "loan-overdue": {
+      "name": "Loan Overdue",
+      "swimlaneId": "lending",
+      "aggregate": "loan",
+      "public": { "version": 1 },
+      "fields": [
+        { "name": "loanId", "type": "string", "idAttribute": true },
+        { "name": "borrowerId", "type": "string" },
+        { "name": "daysOverdue", "type": "integer" }
+      ]
+    },
+    "reminder-recorded": {
+      "name": "Reminder Recorded",
+      "swimlaneId": "lending",
+      "aggregate": "loan",
+      "fields": [
+        { "name": "loanId", "type": "string", "idAttribute": true },
+        { "name": "delivered", "type": "boolean" }
+      ]
+    }
+  },
+  "commands": {
+    "register-borrower": {
+      "name": "Register Borrower",
+      "aggregate": "borrower",
+      "public": { "version": 1 },
+      "fields": [
+        { "name": "borrowerId", "type": "string" },
+        { "name": "branchId", "type": "string" },
+        { "name": "note", "type": "string", "optional": true }
+      ]
+    },
+    "record-overdue": {
+      "name": "Record Overdue",
+      "aggregate": "loan",
+      "fields": [
+        { "name": "loanId", "type": "string" },
+        { "name": "borrowerId", "type": "string" },
+        { "name": "daysOverdue", "type": "integer" }
+      ]
+    },
+    "record-reminder": {
+      "name": "Record Reminder",
+      "description": "The answer to a reminder call, and its give-up (delivered false).",
+      "aggregate": "loan",
+      "public": { "version": 1 },
+      "fields": [
+        { "name": "loanId", "type": "string" },
+        { "name": "delivered", "type": "boolean" }
+      ]
+    }
+  },
+  "screens": {
+    "borrowers-screen": { "name": "Borrowers" },
+    "loans-screen": { "name": "Loans" }
+  },
+  "slices": [
+    {
+      "id": "register",
+      "name": "Register a borrower",
+      "pattern": "stateChange",
+      "swimlaneId": "lending",
+      "status": "created",
+      "screenId": "borrowers-screen",
+      "commandId": "register-borrower",
+      "eventIds": ["borrower-registered"],
+      "scenarios": []
+    },
+    {
+      "id": "overdue",
+      "name": "A loan becomes overdue",
+      "pattern": "stateChange",
+      "swimlaneId": "lending",
+      "status": "created",
+      "screenId": "loans-screen",
+      "commandId": "record-overdue",
+      "eventIds": ["loan-overdue"],
+      "scenarios": []
+    },
+    {
+      "id": "reminder",
+      "name": "A reminder's answer",
+      "pattern": "stateChange",
+      "swimlaneId": "lending",
+      "status": "created",
+      "screenId": "loans-screen",
+      "commandId": "record-reminder",
+      "eventIds": ["reminder-recorded"],
+      "scenarios": []
+    }
+  ]
+}
