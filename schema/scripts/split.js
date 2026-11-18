@@ -15,6 +15,7 @@ const REGISTRY_KEYS = [
   "readModels",
   "screens",
   "ingresses",
+  "outputs",
   "automations",
   "hotspots"
 ];

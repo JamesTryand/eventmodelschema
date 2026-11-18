@@ -1892,3 +1892,36 @@ not one event with a condition on the automation. The schema has no filter on pu
 
 This is the same rule a coordinating document's internal edge already has (`targetId`, rule 2 above), now inside
 one document.
+
+## v6.0.0: the document names messages, never their sources
+
+The domain model is a directed graph, and messages cross its edge in three shapes only: a call and its answer, an
+outside input, and an outside output. The document says that a message enters or leaves and what it means. It never
+says where the message comes from or how it is carried: no scheduler, cadence, webhook signature, delivery id, queue
+or credential. Those are sources, configured by surface tooling, which refers to the model's ingresses, outputs and
+automations by id and never the reverse. A combined view can be produced from the two; it is not a third document.
+
+Read against that rule, 3.4.0-3.6.0 mixed the two:
+
+- **An ingress** kept how its message is checked (`verification`) and de-duplicated (`deliveryIdField`). Both say how
+  a message is carried, so both moved out. The ingress stays: a message enters here, as this command.
+- **A schedule** said how often something fires (`cron`, `timeZone`). Without them it said only "started by time",
+  which is what an outside input already says: something outside sends a command, here carrying today's date. So it
+  went entirely, rather than staying an empty marker. The decider compares the date it is sent with deadlines its
+  stream recorded, and never reads the clock.
+- **A delay** keeps its length: "grace lasts seven days" is the business's rule. Firing the timer is a source's job.
+  Its `cancelledByEventIds` went: the decider's checks already refuse or ignore a message that arrives after the thing
+  it was waiting for, so cancelling only tidied the scheduler.
+- **`elapsed`** in a scenario said time passed between given events. A decider never reads the clock, so a scenario
+  says the same by sending a later date on the command.
+- **An effect** stays as it was: an automation's call out, whose answer and give-up come back in as commands. Its
+  give-up stays required.
+
+**Outputs, new.** A message that leaves with nothing coming back (a confirmation mail, a publish) had no shape: an
+effect requires a give-up answer. It is now its own registry, the mirror of `ingresses`, chosen over an automation
+slice without a command, which would bend the automation pattern (event, command, event). An output names the
+events after which it leaves and the fields that leave, so personal data leaving the system shows in the model.
+Nothing is generated from it.
+
+**`requiredOwnership.message` with `via`.** A `scope` has had its own refusal wording since 4.0.0, so an error
+scenario can expect it; an ownership refusal through a read model (`via`) had none. It may now have one.

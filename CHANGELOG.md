@@ -3,6 +3,37 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 6.0.0 — the document names messages, never their sources
+
+The boundary rule (a model says that a message enters or leaves and what it means, never where it comes from or how
+it is carried) applied to the parts added in 3.4.0–3.6.0. See `docs/design-notes.md`.
+
+**Breaking (removed):**
+- An ingress's `verification` and `deliveryIdField`: how a message is checked and de-duplicated on the way in is its
+  source's, configured by surface tooling, which names the ingress by id. An ingress is now a name, a description and
+  a swimlane.
+- `schedule` on an automation (`cron`, `timeZone`), and with it automations started by time. Something started by time
+  is an outside input: a `stateChange` slice with an `ingressId`, whose command carries today's date (a decider never
+  reads the clock). How often its source sends it is surface tooling's. Every automation now has `triggerEventIds`.
+- `delay.cancelledByEventIds`: the decider's own checks already make a late message harmless, so cancelling was only
+  the scheduler being tidy. A delay keeps its length (`after` or `at`): that rule is the business's.
+- A scenario's `elapsed` step in `given`: commands carry the date, so a scenario sends a later date instead, and "a
+  decider never reads the clock" holds in tests too.
+
+**Additive:**
+- `outputs`: a message leaving after an event with nothing coming back (a notification, a publish), the mirror of
+  `ingresses`. Each names its swimlane, `triggerEventIds`, and optionally `fields`, what leaves, so personal data
+  leaving the system is visible in the model. Nothing is generated from it; its carrier is surface tooling's. A
+  hotspot may target an output.
+- `requiredOwnership.message` with `via`, as a `scope` has had since 4.0.0: an ownership refusal through a read model
+  has its own wording, so an error scenario can expect it.
+
+**Moving a 5.x document:** delete the four removed keys; turn a scheduled automation into an ingress-started
+`stateChange` slice whose command carries the date; write any `elapsed` scenario as a command with a later date.
+`examples/order-fulfillment.json`: the carrier webhook loses its verification, the scheduled reconcile slice is gone,
+the overdue timer loses its cancellation and its scenario its `elapsed`, and the order confirmation is an output.
+`manifest.schema.json` and `scripts/split.js` know the `outputs` registry.
+
 ## 5.0.0 — an automation names where its command goes
 
 **Breaking:**

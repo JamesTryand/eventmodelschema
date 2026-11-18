@@ -32,7 +32,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `5.0.0`. `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `6.0.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -86,6 +86,9 @@ main additions are:
 - **5.0.0 (breaking):** `targetIdField` on every automation started by an event: the trigger's field whose
   value is the stream its command acts on. Before, each generator derived the stream, and could not reach an
   existing one named by a field.
+- **6.0.0 (breaking):** the document names messages, never their sources: an ingress loses its verification and
+  delivery id, `schedule`, delay cancellation and scenario `elapsed` are gone, and `outputs` names a message that
+  leaves with nothing coming back. Sources are configured by surface tooling, which refers to the model by id.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a
@@ -98,10 +101,10 @@ schema and refuses a document it doesn't satisfy:
 
 - **[pocketcqrs](https://github.com/jamestryand/pocketcqrs)** — `pocketcqrs schema import | verify` generates
   JS functions or a Go program from a document and runs its scenarios against the generated code
-  (schema 5.0.0 from v0.23.0).
+  (schema 6.0.0 from v0.25.0).
 - **[dotnetcqrs](https://github.com/jamestryand/dotnetcqrs)** — `dotnetcqrs-codegen generate | verify`
   generates C# deciders, projections, reactors and an optional host, and runs the scenarios the same way
-  (schema 5.0.0 from 0.40.0).
+  (schema 6.0.0 from 0.42.0).
 
 Documents are authored with the `eventmodeling` skill in
 **[cqrs-skills](https://github.com/jamestryand/cqrs-skills)**, which runs the method with a person and ends in a
