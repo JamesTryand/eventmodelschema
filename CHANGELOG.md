@@ -3,9 +3,9 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
-## Coordinating document 0.2.0 — an edge's examples, and the message on the wire
+## 6.1.1 — coordinating document 0.2.0: an edge's examples, and the message on the wire
 
-Released as tag v6.1.1: the EventModel schema is unchanged at 6.1.0; `architecture.schema.json` goes to 0.2.0.
+The EventModel schema is unchanged at 6.1.0; `architecture.schema.json` goes to 0.2.0.
 
 **Additive:**
 - An internal edge's `examples`: given a source event's data, then the command the receiver sends (its target id and
