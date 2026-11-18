@@ -1893,6 +1893,21 @@ not one event with a condition on the automation. The schema has no filter on pu
 This is the same rule a coordinating document's internal edge already has (`targetId`, rule 2 above), now inside
 one document.
 
+## v6.1.0: a command another system sends needs no screen
+
+A command one of your systems receives from another sat on a screen in the receiving document, as if a person sent
+it (the library example's `register-borrower`). No person sends it, and it is not an outside input either: the
+coordinating document already names where it comes from, as an internal edge. Naming it again in the receiving
+document, as a screen or an ingress, would say the same thing twice, and an ingress would call one of your own systems
+"outside".
+
+So a `stateChange` slice may name neither a screen nor an ingress when its command is `public` (which an edge needs
+anyway). What starts it is the edge, named once, in the coordinating document; the system's document stays unaware of
+the others, and valid on its own. Two checks keep "neither" from meaning "forgotten": a lint refuses a slice with
+neither whose command is not public, and the coordinating checker refuses a public command so started that no
+internal edge reaches. Generators generate its command as for any other; the reaction that sends it is made from the
+edge (the coordinating document's step 4), not from the slice.
+
 ## v6.0.0: the document names messages, never their sources
 
 The domain model is a directed graph, and messages cross its edge in three shapes only: a call and its answer, an

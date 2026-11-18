@@ -18,6 +18,8 @@
 //   personal-data  (5, rule 4) a personal field crosses only into a system that declares governed erasure,
 //                  and into a field marked personal there too
 //   flow           (7) each flow's edges connect in order
+//   received       (6.1.0) a stateChange slice with neither a screen nor an ingress is started by another system:
+//                  its command is public, and an internal edge here ends at it
 //
 // Not yet (step 2): a document replacing a placeholder honours its contract (6). Split documents (a manifest)
 // are not read yet: a system's document is one file.
@@ -59,7 +61,15 @@ function documentContract(doc) {
   for (const [id, cmd] of Object.entries(doc.commands || {})) {
     commands[id] = { fields: cmd.fields, public: cmd.public };
   }
-  return { events, commands, erasure: !!(doc.dataSubjects && doc.dataSubjects.erasure), placeholder: false };
+  // commands whose slice names neither a screen nor an ingress: another system sends them (6.1.0)
+  const received = [];
+  for (const s of doc.slices || []) {
+    if (s.pattern === 'stateChange' && !s.screenId && !s.ingressId && !received.includes(s.commandId)) {
+      received.push(s.commandId);
+    }
+  }
+  return { events, commands, received, erasure: !!(doc.dataSubjects && doc.dataSubjects.erasure),
+    placeholder: false };
 }
 
 function placeholderContract(ph) {
@@ -71,7 +81,7 @@ function placeholderContract(ph) {
   for (const cmd of ph.accepts || []) {
     commands[cmd.command] = { fields: cmd.fields || [], public: { version: cmd.version || 1 } };
   }
-  return { events, commands, erasure: false, placeholder: true };
+  return { events, commands, received: [], erasure: false, placeholder: true };
 }
 
 function fieldNamed(fields, name) {
@@ -248,6 +258,24 @@ function check(file) {
       if (!f.optional && !(f.name in edge.fields)) {
         refuse('fields', `${at}.fields`, `command "${edge.to.command}" needs "${f.name}", which the edge ` +
           'does not map');
+      }
+    }
+  }
+
+  // (6.1.0) a command no screen or ingress starts is sent by another system: public, and reached by an edge
+  for (const [sid, contract] of Object.entries(systems)) {
+    for (const command of contract.received) {
+      const at = `systems.${sid}`;
+      const cmd = contract.commands[command];
+      if (cmd && !cmd.public) {
+        refuse('received', at, `command "${command}" has no screen or ingress, so another system sends it, but ` +
+          'it is not public: mark it public, or start it from a screen or an ingress');
+        continue;
+      }
+      const reached = edges.some((e) => e.kind === 'internal' && e.to.system === sid && e.to.command === command);
+      if (!reached) {
+        refuse('received', at, `command "${command}" has no screen or ingress, so another system sends it, but ` +
+          'no internal edge here ends at it');
       }
     }
   }

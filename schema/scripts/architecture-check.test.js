@@ -94,6 +94,13 @@ const cases = [
       piiSubject: 'borrowerId' });
     edge(d[ARCH], 'overdue-fine').fields.email = 'email';
   }],
+  ['6.1.0: a received command no edge reaches', 'received', 'no internal edge here ends at it', (d) => {
+    d[ARCH].edges = d[ARCH].edges.filter((e) => e.id !== 'member-becomes-borrower');
+    d[ARCH].flows = d[ARCH].flows.filter((f) => f.id !== 'joining');
+  }],
+  ['6.1.0: a received command not public', 'received', 'but it is not public', (d) => {
+    delete d[LENDING].commands['register-borrower'].public;
+  }],
   ['a flow whose edges do not connect', 'flow', 'starts in "lending"', (d) => {
     d[ARCH].flows[0].edges = ['join', 'overdue-fine'];
   }],

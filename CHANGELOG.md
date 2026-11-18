@@ -3,6 +3,16 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 6.1.0 — a command another system sends needs no screen
+
+**Additive (relaxed):**
+- A `stateChange` slice may name neither `screenId` nor `ingressId` when its command is `public`: another of your
+  systems sends it, over a coordinating document's internal edge. Before, it had to sit on a screen, as if a person
+  sent it. The edge is named once, in the coordinating document; the system's document still never refers to another
+  system. A slice may still not name both. A slice with neither whose command is not public is refused by a lint (the
+  schema cannot see the command), and `architecture-check.js` refuses one that no internal edge reaches (check
+  `received`).
+
 ## 6.0.0 — the document names messages, never their sources
 
 The boundary rule (a model says that a message enters or leaves and what it means, never where it comes from or how

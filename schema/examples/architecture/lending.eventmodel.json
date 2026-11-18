@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/eventmodeling.schema.json",
-  "eventModelingSchemaVersion": "4.2.0",
+  "eventModelingSchemaVersion": "6.1.0",
   "id": "library-lending",
   "name": "Library: lending",
   "description": "One system of the coordinating document library.architecture.json: borrowers and loans. It holds no personal data; a borrower is registered from the members system's member-joined, by id only.",
@@ -41,6 +41,7 @@
   "commands": {
     "register-borrower": {
       "name": "Register Borrower",
+      "description": "Sent by the members system when someone joins (the coordinating document's edge member-becomes-borrower), so no screen or ingress starts its slice.",
       "aggregate": "borrower",
       "public": { "version": 1 },
       "fields": [
@@ -70,7 +71,6 @@
     }
   },
   "screens": {
-    "borrowers-screen": { "name": "Borrowers" },
     "loans-screen": { "name": "Loans" }
   },
   "slices": [
@@ -80,7 +80,6 @@
       "pattern": "stateChange",
       "swimlaneId": "lending",
       "status": "created",
-      "screenId": "borrowers-screen",
       "commandId": "register-borrower",
       "eventIds": ["borrower-registered"],
       "scenarios": []
