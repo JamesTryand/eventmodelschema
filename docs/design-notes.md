@@ -93,7 +93,7 @@ a value over leaving authors to overload an ill-fitting one.
 - **The UI-only "screen after screen" walkthrough notation** from the cheat sheet
   ("show UI-only interaction by just showing one screen after the other — no
   commands, events"). It touches none of the 5 elements this schema models — it's
-  arguably `eventmodeling-tooling`'s prototyping-GUI concern, not a *document*
+  arguably a prototyping tool's concern, not a *document*
   schema concept. A deliberate exclusion, not an oversight.
 - **Referential-integrity checking and anti-pattern detection tooling.** Both need a
   companion script/linter operating on a parsed document, not schema keywords.

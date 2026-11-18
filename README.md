@@ -93,11 +93,16 @@ separate lint/review layer.
 
 ## Related projects
 
-This schema is the format two sibling projects build against:
+Documents in this format are generated and checked by two CQRS platforms, each of which vendors a copy of the
+schema and refuses a document it doesn't satisfy:
 
-- **eventmodeling-tooling** — produces documents conforming to this schema (a
-  design-authoring GUI/CLI).
-- **eventmodeling-codegen** — consumes documents conforming to this schema to
-  generate code/infrastructure, using `dotnet-cqrs-baseline` as the reference base.
+- **[pocketcqrs](https://github.com/jamestryand/pocketcqrs)** — `pocketcqrs schema import | verify` generates
+  JS functions or a Go program from a document and runs its scenarios against the generated code
+  (schema 5.0.0 from v0.23.0).
+- **[dotnetcqrs](https://github.com/jamestryand/dotnetcqrs)** — `dotnetcqrs-codegen generate | verify`
+  generates C# deciders, projections, reactors and an optional host, and runs the scenarios the same way
+  (schema 5.0.0 from 0.40.0).
 
-Both are early-stage; this schema doesn't depend on either being further along.
+Documents are authored with the `eventmodeling` skill in
+**[cqrs-skills](https://github.com/jamestryand/cqrs-skills)**, which runs the method with a person and ends in a
+document of this schema. There is no separate authoring GUI.
