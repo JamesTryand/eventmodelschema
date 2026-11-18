@@ -32,7 +32,7 @@ that generates code/infrastructure from documents conforming to the schema.
 
 ## Status
 
-`eventModelingSchemaVersion` `4.2.0` (this line said 4.0.0 through 4.1.0; corrected 2026-11-17). `CHANGELOG.md` lists every change since 1.0.0; the
+`eventModelingSchemaVersion` `5.0.0`. `CHANGELOG.md` lists every change since 1.0.0; the
 main additions are:
 
 - **2.x:** typed fields; `translation` removed; `aggregate` tagging; a multi-file
@@ -83,6 +83,9 @@ main additions are:
 - **4.2.0:** `public` on an event or command, at a version: what another system may use. With it, a second
   schema, `architecture.schema.json` (0.1.0): the **coordinating document** for systems that work together,
   and its checker (below).
+- **5.0.0 (breaking):** `targetIdField` on every automation started by an event: the trigger's field whose
+  value is the stream its command acts on. Before, each generator derived the stream, and could not reach an
+  existing one named by a field.
 
 A companion lint tool remains future work. Validation here is structural only — see
 `schema/README.md` for exactly what that means and what's deliberately left to a

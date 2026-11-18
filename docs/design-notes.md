@@ -1855,3 +1855,40 @@ systems it depends on (whose public events it receives) and those that depend on
 **Not yet:** a document that replaces a placeholder is not checked against the placeholder's contract; a system's
 document is one file (a split document's manifest is not read); and a document in another repository has no way
 to be named but a path (an id and version, or a registry, is still open).
+
+## v5.0.0: `targetIdField` — an automation names where its command goes
+
+An automation reacts to an event by sending a command. Which stream the command acts on was not in the document:
+each generator derived it. On the trigger's own aggregate it was the trigger's stream; on another aggregate it was a
+prefix plus the trigger event's id (a create for each event) or its stream's id. So an automation could only ever
+open a new stream, or touch the one its trigger came from. It could not reach an existing stream named by a field:
+a payment, on a purchase's stream, could not grant an entitlement on the customer's. And nothing checked it: a model
+whose commands all went to the wrong stream passed every scenario, because a scenario says which command is sent,
+never where.
+
+So the document now says it. `targetIdField` names a field of the trigger event; its value is the id of the target
+stream, the same id a command sent directly would use. The command declares that field as its identity
+(`idAttribute: true`), so the trigger and the command name one field, `customerId` on both. That is deliberate: the
+name a reader sees on the event is the name on the command, and the stream is the one with that id.
+
+**Why required, and on every automation started by an event.** A key that is optional where "it's obvious" keeps
+the hidden rule alive for every document that leaves it out, and a reader still has to know the rule. Required, it
+reads the same everywhere: every automation says where its command goes. JSON Schema can't tell whether the target
+is the trigger's own aggregate, so it couldn't require the key only across aggregates anyway. A scheduled automation
+has no trigger event to read a field from, so it doesn't take the key.
+
+**What authors now write that they didn't.** An automation that creates something new for each trigger event (a
+notification per comment) needs that new thing's id on the trigger. Before, the generator made one up from the
+event's own id, which no reader could see. A trigger that carries several ids (a payment with a `transactionId` and
+a `customerId`) makes the author choose, which is the point.
+
+**What the generators and verify check.** Every trigger event declares the field; the command declares it with
+`idAttribute: true`; and in each automation scenario, the command's value for the field is the trigger event's.
+That last check is the one whose absence let a model pass with its commands going to the wrong stream.
+
+**No trigger filter.** One trigger event, one meaning. An event whose handling depends on one of its values (a
+payment that is a purchase, a subscription or a renewal) is several business events, each with its own automation,
+not one event with a condition on the automation. The schema has no filter on purpose.
+
+This is the same rule a coordinating document's internal edge already has (`targetId`, rule 2 above), now inside
+one document.

@@ -88,7 +88,7 @@ governed erasure, and a flow whose edges do not connect. Then it prints each sys
 ## Versioning
 
 `eventModelingSchemaVersion` in each document is a semver string; current is
-`"4.2.0"`. Bump the major for a breaking change (one that could invalidate
+`"5.0.0"`. Bump the major for a breaking change (one that could invalidate
 existing documents), the minor for an additive one — see `../CHANGELOG.md` for
 what changed at each version.
 

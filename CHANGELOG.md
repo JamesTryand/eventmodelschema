@@ -3,6 +3,30 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## 5.0.0 — an automation names where its command goes
+
+**Breaking:**
+- `targetIdField` on an automation slice, **required on every automation started by an event** (one with
+  `triggerEventIds`; a scheduled automation has no trigger event and doesn't take it). It names a field that every
+  trigger event carries, and its value is the id of the stream the command acts on: the same stream a command sent
+  directly with that id reaches. The command declares the same field with `idAttribute: true`.
+- Before, the document didn't say, and each generator derived the stream: the trigger's own stream when the command
+  was on the same aggregate, otherwise a prefix plus the trigger event's id or its stream's id. That reached a new
+  stream each time, never an existing one named by a field (a customer, by `customerId`, from a payment). A model
+  could pass every scenario with its commands going to the wrong stream. That rule is gone: the field is the only
+  rule.
+- **Every 4.x document with an automation started by an event must add `targetIdField`**, and its trigger events
+  and command must carry that field. Any other 4.x document validates unchanged.
+- **An automation that creates something new for each trigger event** (a notification for each comment) now needs
+  the trigger to carry that new thing's id (a `notificationId` or `commentId` on the comment). Before, the
+  generator made one up from the event's own id; now the model says it.
+- JSON Schema can't check that the field is on the trigger events and the command. The generators do, and verify
+  checks that each automation scenario's command carries the trigger's value.
+
+**Examples:**
+- `examples/order-fulfillment.json` (and its split form): the three automations started by an event name
+  `"targetIdField": "orderId"`, and the events and commands they use carry `orderId` as their identity.
+
 ## 4.2.0
 
 **Additive (non-breaking):**
