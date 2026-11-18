@@ -1856,6 +1856,23 @@ systems it depends on (whose public events it receives) and those that depend on
 document is one file (a split document's manifest is not read); and a document in another repository has no way
 to be named but a path (an id and version, or a registry, is still open).
 
+## Coordinating document 0.2.0: an edge's examples, and the message on the wire
+
+An internal edge was checked (its fields line up, nothing personal crosses into a system without erasure), but
+nothing made a translation from it, so the one real edge was carried by hand. 0.2.0 adds what generating one needs.
+
+**`examples`.** Given a source event's data, then the command the receiver sends: its target id and its fields,
+exactly. The checker runs them, and so does each generator against the translation it makes. That keeps three
+implementations (the checker's, pocketcqrs's and dotnetcqrs's) from drifting. A field the edge does not map belongs in
+`given` when it matters: the example then proves it does not cross. A target id made of several fields is not
+translated yet, so the checker refuses an example on one.
+
+**`edgeMessage`.** A sender publishes each public event an internal edge starts from, at its public version, with
+only the fields some edge from it maps. That is a public message, not either runtime's own event record (which carries
+store positions, metadata and every field). So it is defined once, here, and either runtime can send or read it. A
+carrier may drop duplicates by its `id` (the source event's id). It names no subject, stream or credential: those are
+surface tooling's, joined to the edge by its id.
+
 ## v5.0.0: `targetIdField` — an automation names where its command goes
 
 An automation reacts to an event by sending a command. Which stream the command acts on was not in the document:

@@ -20,6 +20,8 @@
 //   flow           (7) each flow's edges connect in order
 //   received       (6.1.0) a stateChange slice with neither a screen nor an ingress is started by another system:
 //                  its command is public, and an internal edge here ends at it
+//   examples       (0.2.0) each internal edge's examples hold: the sender publishes only the fields some edge from
+//                  that event maps (the edgeMessage), and the translation of what it publishes is exactly `then`
 //
 // Not yet (step 2): a document replacing a placeholder honours its contract (6). Split documents (a manifest)
 // are not read yet: a system's document is one file.
@@ -86,6 +88,43 @@ function placeholderContract(ph) {
 
 function fieldNamed(fields, name) {
   return (fields || []).find((f) => f.name === name);
+}
+
+// The fields a sender publishes of one event (its edgeMessage's data): those some internal edge from that event, at
+// that version, maps. Nothing else of the event leaves.
+function published(edges, from) {
+  const names = new Set();
+  for (const e of edges) {
+    if (e.kind !== 'internal' || !e.from) continue;
+    if (e.from.system !== from.system || e.from.event !== from.event || e.from.version !== from.version) continue;
+    for (const evField of Object.values(e.fields || {})) names.add(evField);
+    for (const t of [].concat(e.targetId || [])) names.add(t);
+  }
+  return names;
+}
+
+// One edge's translation of a source event's data, as a receiver makes it: only what the sender published reaches
+// it. Generators implement exactly this; the examples hold them to it.
+function translate(edge, publishedNames, given) {
+  const sent = {};
+  for (const [k, v] of Object.entries(given)) if (publishedNames.has(k)) sent[k] = v;
+  const targets = [].concat(edge.targetId);
+  if (targets.length !== 1) {
+    return { problem: 'a target id made of several fields is not translated yet: name one field' };
+  }
+  const id = sent[targets[0]];
+  if (id === undefined || id === null || id === '') {
+    return { problem: `"${targets[0]}" is empty, so the command has no target and is dropped` };
+  }
+  const fields = {};
+  for (const [cmdField, evField] of Object.entries(edge.fields)) {
+    if (evField in sent) fields[cmdField] = sent[evField];
+  }
+  return { targetId: String(id), fields };
+}
+
+function sorted(obj) {
+  return Object.fromEntries(Object.entries(obj || {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
 function check(file) {
@@ -260,6 +299,26 @@ function check(file) {
           'does not map');
       }
     }
+
+    // (0.2.0) the edge's examples: what the sender publishes, translated, is exactly `then`
+    for (const [i, ex] of (edge.examples || []).entries()) {
+      const eat = `${at}.examples[${i}]`;
+      for (const name of Object.keys(ex.given)) {
+        if (!fieldNamed(ev.fields, name)) refuse('examples', eat, `given has "${name}", which is not a field of ` +
+          `event "${edge.from.event}"`);
+      }
+      const result = translate(edge, published(edges, edge.from), ex.given);
+      if (result.problem) {
+        refuse('examples', eat, result.problem);
+        continue;
+      }
+      if (result.targetId !== ex.then.targetId) {
+        refuse('examples', eat, `the target id is "${result.targetId}", not "${ex.then.targetId}"`);
+      }
+      const want = JSON.stringify(sorted(ex.then.fields));
+      const got = JSON.stringify(sorted(result.fields));
+      if (want !== got) refuse('examples', eat, `the command's fields are ${got}, not ${want}`);
+    }
   }
 
   // (6.1.0) a command no screen or ingress starts is sent by another system: public, and reached by an edge
@@ -355,7 +414,7 @@ function main(argv) {
   return result.problems.length ? 1 : 0;
 }
 
-module.exports = { check };
+module.exports = { check, translate, published };
 
 if (require.main === module) {
   process.exitCode = main(process.argv.slice(2));

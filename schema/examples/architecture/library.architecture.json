@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jamestryand/eventmodelschema/main/schema/architecture.schema.json",
-  "architectureSchemaVersion": "0.1.0",
+  "architectureSchemaVersion": "0.2.0",
   "id": "library",
   "name": "Library: members, lending and fines",
   "description": "A worked example: two systems written bottom-up (members, lending) and one top-down (fines, a placeholder), with every kind of edge and two flows.",
@@ -37,7 +37,14 @@
       "from": { "system": "members", "event": "member-joined", "version": 1 },
       "to": { "system": "lending", "command": "register-borrower" },
       "targetId": "memberId",
-      "fields": { "borrowerId": "memberId", "branchId": "branchId" }
+      "fields": { "borrowerId": "memberId", "branchId": "branchId" },
+      "examples": [
+        {
+          "name": "a member who joins becomes a borrower, and their email stays in members",
+          "given": { "memberId": "m-1", "branchId": "north", "email": "reader@example.org" },
+          "then": { "targetId": "m-1", "fields": { "borrowerId": "m-1", "branchId": "north" } }
+        }
+      ]
     },
     {
       "id": "welcome-mail", "kind": "external", "shape": "output",

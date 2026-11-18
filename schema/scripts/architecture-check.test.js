@@ -101,6 +101,21 @@ const cases = [
   ['6.1.0: a received command not public', 'received', 'but it is not public', (d) => {
     delete d[LENDING].commands['register-borrower'].public;
   }],
+  ['0.2.0: an example expecting a field nothing maps', 'examples', 'the command\'s fields are', (d) => {
+    edge(d[ARCH], 'member-becomes-borrower').examples[0].then.fields.email = 'reader@example.org';
+  }],
+  ['0.2.0: an example with the wrong target', 'examples', 'the target id is "m-1", not "m-2"', (d) => {
+    edge(d[ARCH], 'member-becomes-borrower').examples[0].then.targetId = 'm-2';
+  }],
+  ['0.2.0: an example giving a field the event lacks', 'examples', 'not a field of event "member-joined"', (d) => {
+    edge(d[ARCH], 'member-becomes-borrower').examples[0].given.shelf = 'a';
+  }],
+  ['0.2.0: an example whose target field is empty', 'examples', 'is empty, so the command has no target', (d) => {
+    edge(d[ARCH], 'member-becomes-borrower').examples[0].given.memberId = '';
+  }],
+  ['0.2.0: examples on an external edge', 'structure', 'must NOT be valid', (d) => {
+    edge(d[ARCH], 'join').examples = [{ name: 'x', given: {}, then: { targetId: 'a', fields: {} } }];
+  }],
   ['a flow whose edges do not connect', 'flow', 'starts in "lending"', (d) => {
     d[ARCH].flows[0].edges = ['join', 'overdue-fine'];
   }],

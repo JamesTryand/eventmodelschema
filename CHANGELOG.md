@@ -3,6 +3,20 @@
 Tracks `eventModelingSchemaVersion` releases of `schema/eventmodeling.schema.json`.
 See `docs/design-notes.md` for the full rationale behind each change.
 
+## Coordinating document 0.2.0 — an edge's examples, and the message on the wire
+
+Released as tag v6.1.1: the EventModel schema is unchanged at 6.1.0; `architecture.schema.json` goes to 0.2.0.
+
+**Additive:**
+- An internal edge's `examples`: given a source event's data, then the command the receiver sends (its target id and
+  fields, exactly). `architecture-check.js` runs them (check `examples`), and each generator runs the same ones
+  against its generated translation, so they cannot disagree. A field the edge does not map (personal data, say)
+  belongs in `given`: the example then proves it does not cross.
+- `edgeMessage`: the message that crosses between two systems, whatever carries it. It is the source event's id,
+  system, event and public version, and only the fields some internal edge from that event maps. It is not part of a
+  coordinating document; it is the contract both runtimes send and read, so either can be on either end of an edge.
+  It names no subject, stream or credential.
+
 ## 6.1.0 — a command another system sends needs no screen
 
 **Additive (relaxed):**
